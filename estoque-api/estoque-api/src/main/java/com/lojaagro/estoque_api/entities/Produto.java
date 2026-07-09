@@ -17,7 +17,7 @@ public class Produto {
     // No Spring Boot via ser BigDecimal
     private LocalDate dataValidade;
 
-    @ManyToOne
+    @ManyToOne(cascade = jakarta.persistence.CascadeType.ALL)
     private Categoria categoria;
     
     public Produto() {}
