@@ -1,28 +1,45 @@
 package com.lojaagro.estoque_api.entities;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+
+
+
+
 public class Categoria {
 
-    private int id;
-    private String nome;
-    private static int contadorGlobal = 0;
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
 
-    // Construtor com Programação Defensiva
+
+    
+    private Long id;
+    private String nome;
+    
+    public Categoria() {}
+    
+    // Construtor defensivo
     public Categoria(String nome) {
-        // Peneira de Nascimento: Impede categorias em branco ou nulas
+
+        // peneirando espaço vazio 
         if (nome == null || nome.trim().isEmpty()) {
             throw new IllegalArgumentException("ERRO FATAL: O nome da categoria não pode ser vazio.");
         }
         
         this.nome = nome;
-        contadorGlobal++;
-        this.id = contadorGlobal;
+        
     }
 
     // Getters
-    public int getId() { return id; }
+    public Long getId() { return id; }
     public String getNome() { return nome; }
 
-    // O padrão de mercado que substitui o seu "mostrarDados()"
+    // toStrind q substitui o "mostrarDados()"
     @Override
     public String toString() {
         return "Categoria [ID: " + this.id + " | Nome: " + this.nome + "]";

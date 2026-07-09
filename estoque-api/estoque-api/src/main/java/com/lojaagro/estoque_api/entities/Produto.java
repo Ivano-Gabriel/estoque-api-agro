@@ -1,17 +1,31 @@
 package com.lojaagro.estoque_api.entities;
 
 import java.time.LocalDate;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 
+@Entity
 public class Produto {
 
-    private int id;
+    
     private String nome;
     private String tipo;
-    private double preco; // Nota: No Spring Boot migraremos para BigDecimal
+    private double preco; 
+    // No Spring Boot via ser BigDecimal
     private LocalDate dataValidade;
+
+    @ManyToOne
     private Categoria categoria;
     
-    private static int contadorGlobal = 0;
+    public Produto() {}
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private int quantidadeEstoque = 0;
 
     // Construtor
@@ -22,12 +36,11 @@ public class Produto {
         this.dataValidade = dataValidade;
         this.categoria = categoria;            
         
-        contadorGlobal++;
-        this.id = contadorGlobal;
+        
     }
         
     // Getters
-    public int getId() { return id; }
+    public Long getId() { return id; }
     public String getNome() { return nome; }
     public String getTipo() { return tipo; }
     public double getPreco() { return preco; }
@@ -52,9 +65,9 @@ public class Produto {
         this.quantidadeEstoque = novaQuantidade;
     }
 
-    // ==========================================
+    
     // MÉTODOS DE NEGÓCIO (A Inteligência)
-    // ==========================================
+    
 
     public void venderProduto(int quantidadeComprada) {
         if (quantidadeComprada <= 0) {
@@ -80,7 +93,8 @@ public class Produto {
         System.out.println("SUCESSO: Estoque de " + this.nome + " abastecido. Novo total: " + this.quantidadeEstoque);
     }
 
-    // O padrão de mercado que substitui o seu "mostrarDados()"
+    // Substituindop o "mostrarDados()"
+
     @Override
     public String toString() {
         return "Produto [ID: " + id + " | Nome: " + nome + " | Preço: R$" + preco + 
