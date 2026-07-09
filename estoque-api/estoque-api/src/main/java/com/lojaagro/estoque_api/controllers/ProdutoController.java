@@ -9,6 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/produtos")
+@CrossOrigin(origins = "*")
 public class ProdutoController {
 
     private final ProdutoService service;
@@ -38,4 +39,9 @@ public class ProdutoController {
     public ResponseEntity<Produto> realizarVenda(@PathVariable Long id, @RequestParam int quantidade) {
         return ResponseEntity.ok(service.realizarVenda(id, quantidade));
     }
+@PutMapping("/{id}/comprar")
+    public ResponseEntity<Produto> realizarCompra(@PathVariable Long id, @RequestParam int quantidade) {
+        return ResponseEntity.ok(service.realizarCompra(id, quantidade));
+    }
+
 }

@@ -41,6 +41,16 @@ public Produto realizarVenda(Long id, int quantidadeComprada) {
         
         return repository.save(produtoTemporario);
     }
+// Compra 
+    public Produto realizarCompra(Long id, int quantidadeAbastecida) {
+        
+        Produto produtoTemporario = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
 
+       
+        produtoTemporario.comprarProduto(quantidadeAbastecida);
+
+        return repository.save(produtoTemporario);
+    }
 
 }
