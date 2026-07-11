@@ -23,10 +23,10 @@ public class Categoria {
     
     public Categoria() {}
     
-    // Construtor defensivo
+   
     public Categoria(String nome) {
 
-        // peneirando espaço vazio 
+       
         if (nome == null || nome.trim().isEmpty()) {
             throw new IllegalArgumentException("ERRO FATAL: O nome da categoria não pode ser vazio.");
         }

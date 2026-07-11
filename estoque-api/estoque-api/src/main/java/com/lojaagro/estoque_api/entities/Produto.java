@@ -14,7 +14,7 @@ public class Produto {
     private String nome;
     private String tipo;
     private double preco; 
-    // No Spring Boot via ser BigDecimal
+   
     private LocalDate dataValidade;
 
     @ManyToOne(cascade = jakarta.persistence.CascadeType.ALL)
@@ -28,7 +28,7 @@ public class Produto {
 
     private int quantidadeEstoque = 0;
 
-    // Construtor
+   
     public Produto(String nome, String tipo, double preco, LocalDate dataValidade, Categoria categoria) {
         this.nome = nome;
         this.tipo = tipo;
