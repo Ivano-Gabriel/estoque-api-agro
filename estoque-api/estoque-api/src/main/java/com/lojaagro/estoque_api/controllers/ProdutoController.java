@@ -23,6 +23,15 @@ public class ProdutoController {
         return ResponseEntity.ok(service.buscarTodos());
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+    service.deletar(id);
+    return ResponseEntity.noContent().build();
+    }
+
+
+
+
     @GetMapping("/{id}")
     public ResponseEntity<Produto> buscarPorId(@PathVariable Long id) {
         return service.buscarPorId(id)

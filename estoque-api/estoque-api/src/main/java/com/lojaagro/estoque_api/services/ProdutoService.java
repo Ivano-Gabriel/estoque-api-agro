@@ -31,6 +31,10 @@ public class ProdutoService {
         return repository.save(produto);
     }
 
+public void deletar(Long id) {
+    repository.deleteById(id);
+}
+
 public Produto realizarVenda(Long id, int quantidadeComprada) {
         
         Produto produtoTemporario = repository.findById(id)
@@ -41,7 +45,7 @@ public Produto realizarVenda(Long id, int quantidadeComprada) {
         
         return repository.save(produtoTemporario);
     }
-// Compra 
+
     public Produto realizarCompra(Long id, int quantidadeAbastecida) {
         
         Produto produtoTemporario = repository.findById(id)
