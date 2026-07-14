@@ -17,10 +17,7 @@ public class ProdutoController {
     public ProdutoController(ProdutoService service) {
         this.service = service;
     }
-    @GetMapping("/ping")
-public ResponseEntity<String> ping() {
-    return ResponseEntity.ok("ok");
-}
+    
     @GetMapping
     public ResponseEntity<List<Produto>> buscarTodos() {
         return ResponseEntity.ok(service.buscarTodos());
