@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/auth/registrar", "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ping").permitAll()
+                .requestMatchers("/fluxo-caixa/**", "/transacoes/**", "/dashboard/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
