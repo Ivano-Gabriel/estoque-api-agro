@@ -23,28 +23,16 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .cors(cors -> cors.configurationSource(request -> {
-                var config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of("*"));
-                config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                config.setAllowedHeaders(List.of("*"));
-                return config;
-            }))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/auth/registrar", "/auth/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/ping").permitAll()
-                .requestMatchers("/fluxo-caixa/**", "/transacoes/**", "/dashboard/**").authenticated()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-            
-        return http.build();
-    }
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable())
+        .cors(org.springframework.security.config.Customizer.withDefaults()) // LEMBRANDO AQUI PRA ALTERAR DEEPOIS SE FOR PREECISO( QUEEM VEER ISSO, SAIBA Q TIREI A TELA DEE LOGIN INICIAL SO PRA FACILITAR A PRODUÇÃO)
+        .authorizeHttpRequests(auth -> auth
+            .anyRequest().permitAll() // Libera TUDO sem precisar de login(TEMPORARIAMENTE, LEMBRAR!!)
+        );
+    
+    return http.build();
+}
 
     @Bean
     public PasswordEncoder passwordEncoder() {
