@@ -18,13 +18,11 @@ public class ProdutoController {
     private final ProdutoService service;
     private final UsuarioService usuarioService;
 
-    // ATUALIZA O CONSTRUTOR
     public ProdutoController(ProdutoService service, UsuarioService usuarioService) {
         this.service = service;
         this.usuarioService = usuarioService;
     }
 
-    // === MÉTODOS EXISTENTES (NÃO MEXE) ===
     @GetMapping
     public ResponseEntity<List<Produto>> buscarTodos() {
         return ResponseEntity.ok(service.buscarTodos());
@@ -48,7 +46,6 @@ public class ProdutoController {
         return ResponseEntity.noContent().build();
     }
 
-    // MÉTODOS EXISTENTES (SÓ ESTOQUE - MANTÉM)
     @PutMapping("/{id}/vender")
     public ResponseEntity<Produto> realizarVenda(@PathVariable Long id, @RequestParam int quantidade) {
         return ResponseEntity.ok(service.realizarVenda(id, quantidade));
@@ -58,16 +55,14 @@ public class ProdutoController {
     public ResponseEntity<Produto> realizarCompra(@PathVariable Long id, @RequestParam int quantidade) {
         return ResponseEntity.ok(service.realizarCompra(id, quantidade));
     }
-
-    // === NOVOS ENDPOINTS (ADICIONA ESSES) ===
     
     @PutMapping("/{id}/venda-com-lucro")
     public ResponseEntity<Produto> vendaComLucro(
             @PathVariable Long id,
             @RequestBody Map<String, Object> dados) {
         
-        int quantidade = (int) dados.get("quantidade");
-        double precoVenda = (double) dados.get("precoVenda");
+        int quantidade = ((Number) dados.get("quantidade")).intValue();
+        double precoVenda = ((Number) dados.get("precoVenda")).doubleValue();
         Long usuarioId = ((Number) dados.get("usuarioId")).longValue();
         
         Usuario usuario = usuarioService.buscarPorId(usuarioId);
@@ -81,8 +76,8 @@ public class ProdutoController {
             @PathVariable Long id,
             @RequestBody Map<String, Object> dados) {
         
-        int quantidade = (int) dados.get("quantidade");
-        double precoCompra = (double) dados.get("precoCompra");
+        int quantidade = ((Number) dados.get("quantidade")).intValue();
+        double precoCompra = ((Number) dados.get("precoCompra")).doubleValue();
         Long usuarioId = ((Number) dados.get("usuarioId")).longValue();
         
         Usuario usuario = usuarioService.buscarPorId(usuarioId);
