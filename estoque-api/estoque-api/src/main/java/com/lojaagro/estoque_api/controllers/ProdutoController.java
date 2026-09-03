@@ -4,8 +4,11 @@ import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.services.ProdutoService;
 import com.lojaagro.estoque_api.services.UsuarioService;
+import com.lojaagro.estoque_api.repositories.ProdutoRepository; // <-- Importante!
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Map;
@@ -17,10 +20,12 @@ public class ProdutoController {
 
     private final ProdutoService service;
     private final UsuarioService usuarioService;
+    private final ProdutoRepository produtoRepository; // <-- Adicionado aqui!
 
-    public ProdutoController(ProdutoService service, UsuarioService usuarioService) {
+    public ProdutoController(ProdutoService service, UsuarioService usuarioService, ProdutoRepository produtoRepository) {
         this.service = service;
         this.usuarioService = usuarioService;
+        this.produtoRepository = produtoRepository; // <-- Injetado aqui!
     }
 
     @GetMapping
@@ -28,6 +33,8 @@ public class ProdutoController {
         return ResponseEntity.ok(service.buscarTodos());
     }
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
     @GetMapping("/{id}")
     public ResponseEntity<Produto> buscarPorId(@PathVariable Long id) {
         return service.buscarPorId(id)
@@ -44,6 +51,18 @@ public class ProdutoController {
     public ResponseEntity<Void> deletar(@PathVariable Long id) {
         service.deletar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // NOSSAS ROTAS DA LIXEIRA
+    @GetMapping("/lixeira")
+    public ResponseEntity<List<Produto>> listarLixeira() {
+        return ResponseEntity.ok(produtoRepository.buscarLixeira());
+    }
+
+    @PutMapping("/{id}/restaurar")
+    public ResponseEntity<Void> restaurarProduto(@PathVariable Long id) {
+        produtoRepository.restaurarProduto(id);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/vender")
@@ -84,5 +103,33 @@ public class ProdutoController {
         Produto produto = service.comprarComCusto(id, quantidade, precoCompra, usuario);
         
         return ResponseEntity.ok(produto);
+    }
+    @DeleteMapping("/{id}/permanente")
+    public ResponseEntity<Void> deletarPermanente(@PathVariable Long id) {
+        // Apaga as transações primeiro (libera o banco)
+        produtoRepository.apagarTransacoesDoProduto(id);
+        // Agora pode aniquilar o produto de vez
+        produtoRepository.apagarPermanente(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/reset-financeiro")
+    public ResponseEntity<Void> resetarFinanceiro() {
+        System.out.println("🚨 RECEBI O PEDIDO DE RESET DO FRONT-END!");
+        try {
+            // Apaga todo o histórico de compras e vendas
+            jdbcTemplate.execute("DELETE FROM transacao");
+            
+            // Zera o caixa (e se por acaso estiver vazio, já insere um zerado)
+            jdbcTemplate.execute("DELETE FROM fluxo_caixa");
+            jdbcTemplate.execute("INSERT INTO fluxo_caixa (id, total_entradas, total_saidas, saldo_liquido) VALUES (1, 0, 0, 0)");
+            
+            System.out.println("✅ BANCO DE DADOS FINANCEIRO ZERADO COM SUCESSO!");
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            System.out.println("❌ DEU ERRO AO TENTAR ZERAR O BANCO:");
+            e.printStackTrace(); 
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

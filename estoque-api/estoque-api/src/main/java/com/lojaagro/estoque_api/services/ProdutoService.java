@@ -39,7 +39,13 @@ public class ProdutoService {
     }
 
     public void deletar(Long id) {
-        repository.deleteById(id);
+        Produto produto = repository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+            
+        // Forçamos o false na mão e salvamos! 
+        // Assim, até os produtos velhos obedecem à lixeira.
+        produto.setAtivo(false);
+        repository.save(produto);
     }
 
     public Produto realizarVenda(Long id, int quantidadeComprada) {

@@ -6,11 +6,18 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
+@Table(name = "produto")
+// Intercepta o DELETE e faz um UPDATE
+@SQLDelete(sql = "UPDATE produto SET ativo = false WHERE id = ?")
+// Sempre que buscar produtos, traz apenas os ativos
+@SQLRestriction("ativo = true")
 public class Produto {
 
-    
     private String nome;
     private String tipo;
     private double preco; 
@@ -27,16 +34,16 @@ public class Produto {
     private Long id;
 
     private int quantidadeEstoque = 0;
+    
+    // NOVO CAMPO: Controla se o produto foi "deletado"
+    private boolean ativo = true;
 
-   
     public Produto(String nome, String tipo, double preco, LocalDate dataValidade, Categoria categoria) {
         this.nome = nome;
         this.tipo = tipo;
         this.preco = preco;
         this.dataValidade = dataValidade;
         this.categoria = categoria;            
-        
-        
     }
         
     // Getters
@@ -47,6 +54,7 @@ public class Produto {
     public LocalDate getDataValidade() { return dataValidade; }
     public Categoria getCategoria() { return categoria; }
     public int getQuantidadeEstoque() { return quantidadeEstoque; }
+    public boolean isAtivo() { return ativo; } // Getter do ativo
 
     // Setters de Configuração Base
     public void setPreco(double novoPreco) {
@@ -64,11 +72,12 @@ public class Produto {
         }   
         this.quantidadeEstoque = novaQuantidade;
     }
-
     
+    public void setAtivo(boolean ativo) {
+        this.ativo = ativo;
+    }
+
     // MÉTODOS DE NEGÓCIO (A Inteligência)
-    
-
     public void venderProduto(int quantidadeComprada) {
         if (quantidadeComprada <= 0) {
             System.out.println("ERRO: Quantidade de venda deve ser no mínimo 1.");
@@ -92,8 +101,6 @@ public class Produto {
         this.quantidadeEstoque = this.quantidadeEstoque + quantidadeAbastecida;
         System.out.println("SUCESSO: Estoque de " + this.nome + " abastecido. Novo total: " + this.quantidadeEstoque);
     }
-
-    // Substituindop o "mostrarDados()"
 
     @Override
     public String toString() {
