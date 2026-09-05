@@ -31,4 +31,16 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Transactional
     @Query(value = "DELETE FROM produto WHERE id = ?", nativeQuery = true)
     void apagarPermanente(Long id);
+    // 1. Conta quantos produtos estão ativos
+    long countByAtivoTrue();
+
+    // 2. Conta quantos produtos estão com 5 ou menos no estoque
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= 5")
+    long contarEstoqueCritico();
+
+    // 3. Calcula o patrimônio (Preço x Quantidade de todos os ativos)
+    // O COALESCE garante que, se a loja estiver vazia, ele retorne 0 em vez de dar erro null
+    @Query("SELECT COALESCE(SUM(p.quantidadeEstoque * p.preco), 0) FROM Produto p WHERE p.ativo = true")
+    double calcularPatrimonioTotal();
 }
+
