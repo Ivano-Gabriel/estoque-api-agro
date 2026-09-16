@@ -1,6 +1,8 @@
 package com.lojaagro.estoque_api.entities;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,7 +20,8 @@ public class Produto {
 
     private String nome;
     private String tipo;
-    private double preco; 
+    @jakarta.persistence.Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal preco;
    
     private LocalDate dataValidade;
 
@@ -40,10 +43,10 @@ public class Produto {
     // NOVO CAMPO: Controla se o produto foi "deletado"
     private boolean ativo = true;
 
-    public Produto(String nome, String tipo, double preco, LocalDate dataValidade, Categoria categoria) {
+    public Produto(String nome, String tipo, BigDecimal preco, LocalDate dataValidade, Categoria categoria) {
         this.nome = nome;
         this.tipo = tipo;
-        this.preco = preco;
+        setPreco(preco);
         this.dataValidade = dataValidade;
         this.categoria = categoria;            
     }
@@ -52,18 +55,18 @@ public class Produto {
     public Long getId() { return id; }
     public String getNome() { return nome; }
     public String getTipo() { return tipo; }
-    public double getPreco() { return preco; }
+    public BigDecimal getPreco() { return preco; }
     public LocalDate getDataValidade() { return dataValidade; }
     public Categoria getCategoria() { return categoria; }
     public int getQuantidadeEstoque() { return quantidadeEstoque; }
     public boolean isAtivo() { return ativo; } // Getter do ativo
 
     // Setters de Configuração Base
-    public void setPreco(double novoPreco) {
-        if (novoPreco <= 0) {
+    public void setPreco(BigDecimal novoPreco) {
+        if (novoPreco == null || novoPreco.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("O preço deve ser maior que zero.");
         }
-        this.preco = novoPreco;
+        this.preco = novoPreco.setScale(2, RoundingMode.HALF_UP);
     }
 
     public void setQuantidadeEstoque(int novaQuantidade) {
@@ -79,7 +82,7 @@ public class Produto {
 
     public void atualizarDados(String nome,
                                String tipo,
-                               double preco,
+                               BigDecimal preco,
                                LocalDate dataValidade,
                                int quantidadeEstoque,
                                Categoria categoria) {

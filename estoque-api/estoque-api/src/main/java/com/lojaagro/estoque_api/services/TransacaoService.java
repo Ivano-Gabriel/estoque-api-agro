@@ -7,6 +7,7 @@ import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -20,8 +21,8 @@ public class TransacaoService {
 
     @Transactional
     public Transacao registrarTransacao(Produto produto, Usuario usuario, String tipo, 
-                                       int quantidade, double precoUnitario, String descricao) {
-        double valorTotal = quantidade * precoUnitario;
+                                       int quantidade, BigDecimal precoUnitario, String descricao) {
+        BigDecimal valorTotal = precoUnitario.multiply(BigDecimal.valueOf(quantidade));
         
         Transacao transacao = new Transacao();
         transacao.setProduto(produto);
@@ -52,8 +53,8 @@ public class TransacaoService {
         return repository.findByTipo(tipo);
     }
     
-    public Double somarPorTipo(String tipo) {
-        Double soma = repository.sumValorTotalByTipo(tipo);
-        return soma != null ? soma : 0.0;
+    public BigDecimal somarPorTipo(String tipo) {
+        BigDecimal soma = repository.sumValorTotalByTipo(tipo);
+        return soma != null ? soma : BigDecimal.ZERO;
     }
-}   
+}

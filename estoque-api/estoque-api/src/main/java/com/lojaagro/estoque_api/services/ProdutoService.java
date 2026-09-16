@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
 
 @Service
 public class ProdutoService {
@@ -80,7 +81,7 @@ public class ProdutoService {
     // === NOVOS MÉTODOS (ADICIONA ESSES) ===
     
     @Transactional
-    public Produto venderComLucro(Long produtoId, int quantidade, double precoVenda, Usuario usuario) {
+    public Produto venderComLucro(Long produtoId, int quantidade, BigDecimal precoVenda, Usuario usuario) {
         Produto produto = repository.findById(produtoId)
             .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
         
@@ -91,7 +92,7 @@ public class ProdutoService {
         produto.venderProduto(quantidade);
         repository.save(produto);
         
-        double valorTotal = quantidade * precoVenda;
+        BigDecimal valorTotal = precoVenda.multiply(BigDecimal.valueOf(quantidade));
         
         transacaoService.registrarTransacao(
             produto, 
@@ -108,14 +109,14 @@ public class ProdutoService {
     }
 
     @Transactional
-    public Produto comprarComCusto(Long produtoId, int quantidade, double precoCompra, Usuario usuario) {
+    public Produto comprarComCusto(Long produtoId, int quantidade, BigDecimal precoCompra, Usuario usuario) {
         Produto produto = repository.findById(produtoId)
             .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
         
         produto.comprarProduto(quantidade);
         repository.save(produto);
         
-        double valorTotal = quantidade * precoCompra;
+        BigDecimal valorTotal = precoCompra.multiply(BigDecimal.valueOf(quantidade));
         
         transacaoService.registrarTransacao(
             produto,

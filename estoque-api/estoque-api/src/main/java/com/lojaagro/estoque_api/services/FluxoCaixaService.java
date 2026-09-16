@@ -4,6 +4,7 @@ import com.lojaagro.estoque_api.entities.FluxoCaixa;
 import com.lojaagro.estoque_api.repositories.FluxoCaixaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 
 @Service
 public class FluxoCaixaService {
@@ -16,14 +17,14 @@ public class FluxoCaixaService {
     }
 
     @Transactional
-    public FluxoCaixa adicionarEntrada(double valor) {
+    public FluxoCaixa adicionarEntrada(BigDecimal valor) {
         FluxoCaixa fluxo = getOrCreateFluxo();
         fluxo.adicionarEntrada(valor);
         return repository.save(fluxo);
     }
 
     @Transactional
-    public FluxoCaixa adicionarSaida(double valor) {
+    public FluxoCaixa adicionarSaida(BigDecimal valor) {
         FluxoCaixa fluxo = getOrCreateFluxo();
         fluxo.adicionarSaida(valor);
         return repository.save(fluxo);

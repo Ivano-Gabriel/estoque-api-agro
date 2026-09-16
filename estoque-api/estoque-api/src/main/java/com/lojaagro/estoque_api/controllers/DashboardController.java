@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/dashboard")
@@ -32,15 +33,15 @@ public class DashboardController {
     public ResponseEntity<Map<String, Object>> getDashboard() {
         FluxoCaixa fluxo = fluxoCaixaService.getFluxoAtual();
         List<Transacao> ultimasTransacoes = transacaoService.listarUltimas10();
-        Double totalVendas = transacaoService.somarPorTipo("VENDA");
-        Double totalCompras = transacaoService.somarPorTipo("COMPRA");
+        BigDecimal totalVendas = transacaoService.somarPorTipo("VENDA");
+        BigDecimal totalCompras = transacaoService.somarPorTipo("COMPRA");
         int totalProdutos = produtoService.buscarTodos().size();
 
         Map<String, Object> dashboard = new HashMap<>();
         dashboard.put("fluxoCaixa", fluxo);
         dashboard.put("ultimasTransacoes", ultimasTransacoes);
-        dashboard.put("totalVendas", totalVendas != null ? totalVendas : 0.0);
-        dashboard.put("totalCompras", totalCompras != null ? totalCompras : 0.0);
+        dashboard.put("totalVendas", totalVendas);
+        dashboard.put("totalCompras", totalCompras);
         dashboard.put("totalProdutosEstoque", totalProdutos);
 
         return ResponseEntity.ok(dashboard);

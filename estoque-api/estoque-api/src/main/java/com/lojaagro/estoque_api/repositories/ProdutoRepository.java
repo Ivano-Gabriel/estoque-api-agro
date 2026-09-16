@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
@@ -46,5 +47,5 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     // 3. Calcula o patrimônio (Preço x Quantidade de todos os ativos)
     // O COALESCE garante que, se a loja estiver vazia, ele retorne 0 em vez de dar erro null
     @Query("SELECT COALESCE(SUM(p.quantidadeEstoque * p.preco), 0) FROM Produto p WHERE p.ativo = true")
-    double calcularPatrimonioTotal();
+    BigDecimal calcularPatrimonioTotal();
 }

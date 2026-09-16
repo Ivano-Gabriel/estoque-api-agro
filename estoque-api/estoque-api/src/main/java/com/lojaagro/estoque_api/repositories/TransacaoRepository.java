@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Repository
 public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
@@ -20,7 +21,7 @@ public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
                                   @Param("fim") LocalDateTime fim);
     
     @Query("SELECT SUM(t.valorTotal) FROM Transacao t WHERE t.tipo = :tipo")
-    Double sumValorTotalByTipo(@Param("tipo") String tipo);
+    BigDecimal sumValorTotalByTipo(@Param("tipo") String tipo);
     
     @Query("SELECT t FROM Transacao t ORDER BY t.data DESC")
     List<Transacao> findTop10ByOrderByDataDesc();
