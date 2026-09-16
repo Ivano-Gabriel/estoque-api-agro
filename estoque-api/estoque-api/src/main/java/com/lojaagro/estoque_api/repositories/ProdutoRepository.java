@@ -21,16 +21,21 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query(value = "UPDATE produto SET ativo = true WHERE id = ?", nativeQuery = true)
     void restaurarProduto(Long id);
 
+    /*
+     * Ferramentas destrutivas preservadas para testes.
+     * Só são chamadas pelo controller do profile "ferramentas-teste",
+     * que não existe no ambiente normal de produção.
+     */
     @Modifying
     @Transactional
     @Query(value = "DELETE FROM transacao WHERE produto_id = ?", nativeQuery = true)
     void apagarTransacoesDoProduto(Long id);
-    
-    // Método para apagar de vez (agora dentro da interface)
+
     @Modifying
     @Transactional
     @Query(value = "DELETE FROM produto WHERE id = ?", nativeQuery = true)
     void apagarPermanente(Long id);
+
     // 1. Conta quantos produtos estão ativos
     long countByAtivoTrue();
 
@@ -43,4 +48,3 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query("SELECT COALESCE(SUM(p.quantidadeEstoque * p.preco), 0) FROM Produto p WHERE p.ativo = true")
     double calcularPatrimonioTotal();
 }
-

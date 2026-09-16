@@ -7,13 +7,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.SQLDelete;
+import jakarta.persistence.Version;
 import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "produto")
-// Intercepta o DELETE e faz um UPDATE
-@SQLDelete(sql = "UPDATE produto SET ativo = false WHERE id = ?")
 // Sempre que buscar produtos, traz apenas os ativos
 @SQLRestriction("ativo = true")
 public class Produto {
@@ -24,7 +22,7 @@ public class Produto {
    
     private LocalDate dataValidade;
 
-    @ManyToOne(cascade = jakarta.persistence.CascadeType.ALL)
+    @ManyToOne(optional = false)
     private Categoria categoria;
     
     public Produto() {}
@@ -32,6 +30,10 @@ public class Produto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @jakarta.persistence.Column(nullable = false, columnDefinition = "bigint default 0")
+    private long versao;
 
     private int quantidadeEstoque = 0;
     
@@ -59,16 +61,14 @@ public class Produto {
     // Setters de Configuração Base
     public void setPreco(double novoPreco) {
         if (novoPreco <= 0) {
-            System.out.println("ERRO: O preço deve ser maior que zero.");
-            return; 
+            throw new IllegalArgumentException("O preço deve ser maior que zero.");
         }
         this.preco = novoPreco;
     }
 
     public void setQuantidadeEstoque(int novaQuantidade) {
         if (novaQuantidade < 0) {
-            System.out.println("ERRO: Estoque não pode ser negativo.");
-            return;
+            throw new IllegalArgumentException("Estoque não pode ser negativo.");
         }   
         this.quantidadeEstoque = novaQuantidade;
     }
@@ -77,29 +77,48 @@ public class Produto {
         this.ativo = ativo;
     }
 
+    public void atualizarDados(String nome,
+                               String tipo,
+                               double preco,
+                               LocalDate dataValidade,
+                               int quantidadeEstoque,
+                               Categoria categoria) {
+        if (nome == null || nome.isBlank()) {
+            throw new IllegalArgumentException("O nome do produto é obrigatório.");
+        }
+        if (tipo == null || tipo.isBlank()) {
+            throw new IllegalArgumentException("O tipo do produto é obrigatório.");
+        }
+        if (categoria == null) {
+            throw new IllegalArgumentException("A categoria do produto é obrigatória.");
+        }
+
+        this.nome = nome.trim();
+        this.tipo = tipo.trim();
+        setPreco(preco);
+        this.dataValidade = dataValidade;
+        setQuantidadeEstoque(quantidadeEstoque);
+        this.categoria = categoria;
+    }
+
     // MÉTODOS DE NEGÓCIO (A Inteligência)
     public void venderProduto(int quantidadeComprada) {
         if (quantidadeComprada <= 0) {
-            System.out.println("ERRO: Quantidade de venda deve ser no mínimo 1.");
-            return;
+            throw new IllegalArgumentException("Quantidade de venda deve ser no mínimo 1.");
         }
         if (quantidadeComprada > this.quantidadeEstoque) {
-            System.out.println("ERRO: Estoque insuficiente para " + this.nome + ". Venda bloqueada.");
-            return;
+            throw new IllegalArgumentException("Estoque insuficiente para " + this.nome + ".");
         }
         
         this.quantidadeEstoque = this.quantidadeEstoque - quantidadeComprada;
-        System.out.println("SUCESSO: Venda de " + quantidadeComprada + "x " + this.nome + " realizada. Estoque restante: " + this.quantidadeEstoque);
     }
 
     public void comprarProduto(int quantidadeAbastecida) {
         if (quantidadeAbastecida <= 0) {
-            System.out.println("ERRO: A quantidade de abastecimento deve ser no mínimo 1.");
-            return;
+            throw new IllegalArgumentException("A quantidade de abastecimento deve ser no mínimo 1.");
         }
         
         this.quantidadeEstoque = this.quantidadeEstoque + quantidadeAbastecida;
-        System.out.println("SUCESSO: Estoque de " + this.nome + " abastecido. Novo total: " + this.quantidadeEstoque);
     }
 
     @Override

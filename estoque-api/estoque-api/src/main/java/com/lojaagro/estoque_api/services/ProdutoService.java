@@ -3,6 +3,9 @@ package com.lojaagro.estoque_api.services;
 import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
+import com.lojaagro.estoque_api.repositories.CategoriaRepository;
+import com.lojaagro.estoque_api.dto.ProdutoRequest;
+import com.lojaagro.estoque_api.entities.Categoria;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,14 +18,17 @@ public class ProdutoService {
     private final ProdutoRepository repository;
     private final TransacaoService transacaoService;
     private final FluxoCaixaService fluxoCaixaService;
+    private final CategoriaRepository categoriaRepository;
 
     // CONSTRUTOR ATUALIZADO
     public ProdutoService(ProdutoRepository repository, 
                           TransacaoService transacaoService, 
-                          FluxoCaixaService fluxoCaixaService) {
+                          FluxoCaixaService fluxoCaixaService,
+                          CategoriaRepository categoriaRepository) {
         this.repository = repository;
         this.transacaoService = transacaoService;
         this.fluxoCaixaService = fluxoCaixaService;
+        this.categoriaRepository = categoriaRepository;
     }
 
     // === MÉTODOS EXISTENTES (JÁ TINHA) ===
@@ -34,8 +40,31 @@ public class ProdutoService {
         return repository.findById(id);
     }
 
-    public Produto salvar(Produto produto) {
+    @Transactional
+    public Produto criar(ProdutoRequest request) {
+        Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
+        Produto produto = new Produto();
+        produto.atualizarDados(
+                request.nome(), request.tipo(), request.preco(),
+                request.dataValidade(), request.quantidadeEstoque(), categoria);
         return repository.save(produto);
+    }
+
+    @Transactional
+    public Produto atualizar(Long id, ProdutoRequest request) {
+        Produto produto = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
+        Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
+        produto.atualizarDados(
+                request.nome(), request.tipo(), request.preco(),
+                request.dataValidade(), request.quantidadeEstoque(), categoria);
+        return repository.save(produto);
+    }
+
+    private Categoria obterOuCriarCategoria(String nome) {
+        String nomeNormalizado = nome.trim();
+        return categoriaRepository.findByNomeIgnoreCase(nomeNormalizado)
+                .orElseGet(() -> categoriaRepository.save(new Categoria(nomeNormalizado)));
     }
 
     public void deletar(Long id) {
@@ -46,20 +75,6 @@ public class ProdutoService {
         // Assim, até os produtos velhos obedecem à lixeira.
         produto.setAtivo(false);
         repository.save(produto);
-    }
-
-    public Produto realizarVenda(Long id, int quantidadeComprada) {
-        Produto produtoTemporario = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
-        produtoTemporario.venderProduto(quantidadeComprada);
-        return repository.save(produtoTemporario);
-    }
-
-    public Produto realizarCompra(Long id, int quantidadeAbastecida) {
-        Produto produtoTemporario = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
-        produtoTemporario.comprarProduto(quantidadeAbastecida);
-        return repository.save(produtoTemporario);
     }
 
     // === NOVOS MÉTODOS (ADICIONA ESSES) ===

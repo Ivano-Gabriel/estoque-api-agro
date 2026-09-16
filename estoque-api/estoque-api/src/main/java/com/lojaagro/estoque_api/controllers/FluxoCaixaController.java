@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/fluxo-caixa")
-@CrossOrigin(origins = "*")
 public class FluxoCaixaController {
 
     private final FluxoCaixaService service;

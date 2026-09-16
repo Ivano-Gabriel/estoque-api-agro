@@ -9,6 +9,10 @@ public class FluxoCaixa {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private long versao;
     
     @Column(nullable = false)
     private double totalEntradas = 0.0;

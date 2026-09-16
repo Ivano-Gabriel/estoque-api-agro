@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/estatisticas")
-@CrossOrigin(origins = "*")
 public class EstatisticasController {
 
     private final ProdutoRepository produtoRepository;
