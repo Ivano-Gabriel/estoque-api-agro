@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +41,14 @@ public class GlobalExceptionHandler {
         Map<String, Object> erro = new HashMap<>();
         erro.put("erro", "Dados inválidos.");
         erro.put("campos", campos);
+        erro.put("status", 400);
+        return ResponseEntity.badRequest().body(erro);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleArquivoGrande(MaxUploadSizeExceededException ex) {
+        Map<String, Object> erro = new HashMap<>();
+        erro.put("erro", "A planilha deve ter no máximo 5 MB.");
         erro.put("status", 400);
         return ResponseEntity.badRequest().body(erro);
     }
