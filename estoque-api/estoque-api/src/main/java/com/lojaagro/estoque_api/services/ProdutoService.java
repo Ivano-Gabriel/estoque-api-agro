@@ -47,7 +47,8 @@ public class ProdutoService {
         Produto produto = new Produto();
         produto.atualizarDados(
                 request.nome(), request.tipo(), request.preco(),
-                request.dataValidade(), request.quantidadeEstoque(), categoria);
+                request.dataValidade(), categoria);
+        produto.inicializarEstoque(request.quantidadeEstoque(), request.custoUnitario());
         return repository.save(produto);
     }
 
@@ -58,7 +59,7 @@ public class ProdutoService {
         Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
         produto.atualizarDados(
                 request.nome(), request.tipo(), request.preco(),
-                request.dataValidade(), request.quantidadeEstoque(), categoria);
+                request.dataValidade(), categoria);
         return repository.save(produto);
     }
 
@@ -89,6 +90,10 @@ public class ProdutoService {
             throw new IllegalArgumentException("Estoque insuficiente! Disponível: " + produto.getQuantidadeEstoque());
         }
         
+        BigDecimal custoUnitario = produto.getCustoMedio();
+        BigDecimal lucroTotal = precoVenda.subtract(custoUnitario)
+                .multiply(BigDecimal.valueOf(quantidade));
+
         produto.venderProduto(quantidade);
         repository.save(produto);
         
@@ -99,7 +104,9 @@ public class ProdutoService {
             usuario, 
             "VENDA", 
             quantidade, 
-            precoVenda, 
+            precoVenda,
+            custoUnitario,
+            lucroTotal,
             "Venda de " + quantidade + "x " + produto.getNome()
         );
         
@@ -113,7 +120,7 @@ public class ProdutoService {
         Produto produto = repository.findById(produtoId)
             .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
         
-        produto.comprarProduto(quantidade);
+        produto.comprarProduto(quantidade, precoCompra);
         repository.save(produto);
         
         BigDecimal valorTotal = precoCompra.multiply(BigDecimal.valueOf(quantidade));
@@ -124,6 +131,8 @@ public class ProdutoService {
             "COMPRA",
             quantidade,
             precoCompra,
+            precoCompra,
+            BigDecimal.ZERO,
             "Reposição de " + quantidade + "x " + produto.getNome()
         );
         

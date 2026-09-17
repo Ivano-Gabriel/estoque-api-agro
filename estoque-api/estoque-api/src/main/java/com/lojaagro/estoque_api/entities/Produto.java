@@ -22,6 +22,13 @@ public class Produto {
     private String tipo;
     @jakarta.persistence.Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal preco;
+
+    @jakarta.persistence.Column(
+            nullable = false,
+            precision = 19,
+            scale = 2,
+            columnDefinition = "numeric(19,2) default 0.00")
+    private BigDecimal custoMedio = BigDecimal.ZERO.setScale(2);
    
     private LocalDate dataValidade;
 
@@ -56,6 +63,8 @@ public class Produto {
     public String getNome() { return nome; }
     public String getTipo() { return tipo; }
     public BigDecimal getPreco() { return preco; }
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public BigDecimal getCustoMedio() { return custoMedio; }
     public LocalDate getDataValidade() { return dataValidade; }
     public Categoria getCategoria() { return categoria; }
     public int getQuantidadeEstoque() { return quantidadeEstoque; }
@@ -84,7 +93,6 @@ public class Produto {
                                String tipo,
                                BigDecimal preco,
                                LocalDate dataValidade,
-                               int quantidadeEstoque,
                                Categoria categoria) {
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException("O nome do produto é obrigatório.");
@@ -100,8 +108,19 @@ public class Produto {
         this.tipo = tipo.trim();
         setPreco(preco);
         this.dataValidade = dataValidade;
-        setQuantidadeEstoque(quantidadeEstoque);
         this.categoria = categoria;
+    }
+
+    public void inicializarEstoque(int quantidade, BigDecimal custoUnitario) {
+        setQuantidadeEstoque(quantidade);
+        if (quantidade == 0) {
+            this.custoMedio = BigDecimal.ZERO.setScale(2);
+            return;
+        }
+        if (custoUnitario == null || custoUnitario.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Informe o custo unitário do estoque inicial.");
+        }
+        this.custoMedio = custoUnitario.setScale(2, RoundingMode.HALF_UP);
     }
 
     // MÉTODOS DE NEGÓCIO (A Inteligência)
@@ -116,12 +135,21 @@ public class Produto {
         this.quantidadeEstoque = this.quantidadeEstoque - quantidadeComprada;
     }
 
-    public void comprarProduto(int quantidadeAbastecida) {
+    public void comprarProduto(int quantidadeAbastecida, BigDecimal custoCompra) {
         if (quantidadeAbastecida <= 0) {
             throw new IllegalArgumentException("A quantidade de abastecimento deve ser no mínimo 1.");
         }
-        
-        this.quantidadeEstoque = this.quantidadeEstoque + quantidadeAbastecida;
+        if (custoCompra == null || custoCompra.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O custo da reposição deve ser maior que zero.");
+        }
+
+        BigDecimal valorAtual = custoMedio.multiply(BigDecimal.valueOf(quantidadeEstoque));
+        BigDecimal valorCompra = custoCompra.multiply(BigDecimal.valueOf(quantidadeAbastecida));
+        int novaQuantidade = quantidadeEstoque + quantidadeAbastecida;
+
+        this.custoMedio = valorAtual.add(valorCompra)
+                .divide(BigDecimal.valueOf(novaQuantidade), 2, RoundingMode.HALF_UP);
+        this.quantidadeEstoque = novaQuantidade;
     }
 
     @Override

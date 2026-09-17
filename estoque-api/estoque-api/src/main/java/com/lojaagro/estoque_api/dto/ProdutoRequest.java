@@ -15,6 +15,7 @@ public record ProdutoRequest(
         @NotBlank @Size(max = 120) String nome,
         @NotBlank @Size(max = 40) String tipo,
         @NotNull @DecimalMin("0.01") @Digits(integer = 17, fraction = 2) BigDecimal preco,
+        @DecimalMin("0.00") @Digits(integer = 17, fraction = 2) BigDecimal custoUnitario,
         LocalDate dataValidade,
         @Min(0) int quantidadeEstoque,
         @NotNull @Valid CategoriaRequest categoria) {

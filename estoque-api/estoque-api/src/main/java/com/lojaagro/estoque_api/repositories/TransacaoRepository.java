@@ -22,6 +22,9 @@ public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
     
     @Query("SELECT SUM(t.valorTotal) FROM Transacao t WHERE t.tipo = :tipo")
     BigDecimal sumValorTotalByTipo(@Param("tipo") String tipo);
+
+    @Query("SELECT SUM(t.lucro) FROM Transacao t WHERE t.tipo = 'VENDA'")
+    BigDecimal sumLucroVendas();
     
     @Query("SELECT t FROM Transacao t ORDER BY t.data DESC")
     List<Transacao> findTop10ByOrderByDataDesc();

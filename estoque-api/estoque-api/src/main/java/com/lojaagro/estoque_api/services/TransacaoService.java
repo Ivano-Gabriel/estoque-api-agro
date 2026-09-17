@@ -21,7 +21,9 @@ public class TransacaoService {
 
     @Transactional
     public Transacao registrarTransacao(Produto produto, Usuario usuario, String tipo, 
-                                       int quantidade, BigDecimal precoUnitario, String descricao) {
+                                       int quantidade, BigDecimal precoUnitario,
+                                       BigDecimal custoUnitario, BigDecimal lucro,
+                                       String descricao) {
         BigDecimal valorTotal = precoUnitario.multiply(BigDecimal.valueOf(quantidade));
         
         Transacao transacao = new Transacao();
@@ -31,6 +33,8 @@ public class TransacaoService {
         transacao.setQuantidade(quantidade);
         transacao.setPrecoUnitario(precoUnitario);
         transacao.setValorTotal(valorTotal);
+        transacao.setCustoUnitario(custoUnitario);
+        transacao.setLucro(lucro);
         transacao.setData(LocalDateTime.now());
         transacao.setDescricao(descricao);
         
@@ -55,6 +59,11 @@ public class TransacaoService {
     
     public BigDecimal somarPorTipo(String tipo) {
         BigDecimal soma = repository.sumValorTotalByTipo(tipo);
+        return soma != null ? soma : BigDecimal.ZERO;
+    }
+
+    public BigDecimal somarLucroReal() {
+        BigDecimal soma = repository.sumLucroVendas();
         return soma != null ? soma : BigDecimal.ZERO;
     }
 }

@@ -35,6 +35,7 @@ public class DashboardController {
         List<Transacao> ultimasTransacoes = transacaoService.listarUltimas10();
         BigDecimal totalVendas = transacaoService.somarPorTipo("VENDA");
         BigDecimal totalCompras = transacaoService.somarPorTipo("COMPRA");
+        BigDecimal lucroReal = transacaoService.somarLucroReal();
         int totalProdutos = produtoService.buscarTodos().size();
 
         Map<String, Object> dashboard = new HashMap<>();
@@ -42,6 +43,7 @@ public class DashboardController {
         dashboard.put("ultimasTransacoes", ultimasTransacoes);
         dashboard.put("totalVendas", totalVendas);
         dashboard.put("totalCompras", totalCompras);
+        dashboard.put("lucroReal", lucroReal);
         dashboard.put("totalProdutosEstoque", totalProdutos);
 
         return ResponseEntity.ok(dashboard);

@@ -31,6 +31,20 @@ public class Transacao {
     
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal valorTotal;
+
+    @Column(
+            nullable = false,
+            precision = 19,
+            scale = 2,
+            columnDefinition = "numeric(19,2) default 0.00")
+    private BigDecimal custoUnitario = BigDecimal.ZERO.setScale(2);
+
+    @Column(
+            nullable = false,
+            precision = 19,
+            scale = 2,
+            columnDefinition = "numeric(19,2) default 0.00")
+    private BigDecimal lucro = BigDecimal.ZERO.setScale(2);
     
     @Column(nullable = false)
     private LocalDateTime data;
@@ -60,6 +74,8 @@ public class Transacao {
     public int getQuantidade() { return quantidade; }
     public BigDecimal getPrecoUnitario() { return precoUnitario; }
     public BigDecimal getValorTotal() { return valorTotal; }
+    public BigDecimal getCustoUnitario() { return custoUnitario; }
+    public BigDecimal getLucro() { return lucro; }
     public LocalDateTime getData() { return data; }
     public String getDescricao() { return descricao; }
     
@@ -75,6 +91,16 @@ public class Transacao {
     public void setValorTotal(BigDecimal valorTotal) {
         this.valorTotal = valorTotal.setScale(2, RoundingMode.HALF_UP);
     }
+    public void setCustoUnitario(BigDecimal custoUnitario) {
+        this.custoUnitario = normalizar(custoUnitario);
+    }
+    public void setLucro(BigDecimal lucro) {
+        this.lucro = normalizar(lucro);
+    }
     public void setData(LocalDateTime data) { this.data = data; }
     public void setDescricao(String descricao) { this.descricao = descricao; }
+
+    private BigDecimal normalizar(BigDecimal valor) {
+        return (valor == null ? BigDecimal.ZERO : valor).setScale(2, RoundingMode.HALF_UP);
+    }
 }
