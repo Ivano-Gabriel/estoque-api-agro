@@ -6,6 +6,7 @@ import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.util.List;
@@ -14,9 +15,11 @@ import java.util.List;
 public class TransacaoService {
 
     private final TransacaoRepository repository;
+    private final Clock businessClock;
 
-    public TransacaoService(TransacaoRepository repository) {
+    public TransacaoService(TransacaoRepository repository, Clock businessClock) {
         this.repository = repository;
+        this.businessClock = businessClock;
     }
 
     @Transactional
@@ -35,7 +38,7 @@ public class TransacaoService {
         transacao.setValorTotal(valorTotal);
         transacao.setCustoUnitario(custoUnitario);
         transacao.setLucro(lucro);
-        transacao.setData(LocalDateTime.now());
+        transacao.setData(LocalDateTime.now(businessClock));
         transacao.setDescricao(descricao);
         
         return repository.save(transacao);

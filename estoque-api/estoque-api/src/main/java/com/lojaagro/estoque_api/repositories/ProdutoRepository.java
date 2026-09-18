@@ -44,6 +44,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query("SELECT COUNT(p) FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= 5")
     long contarEstoqueCritico();
 
+    @Query("SELECT p FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= 5 "
+            + "ORDER BY p.quantidadeEstoque ASC, p.nome ASC")
+    List<Produto> buscarEstoqueCritico();
+
     // 3. Calcula o patrimônio (Preço x Quantidade de todos os ativos)
     // O COALESCE garante que, se a loja estiver vazia, ele retorne 0 em vez de dar erro null
     @Query("SELECT COALESCE(SUM(p.quantidadeEstoque * p.preco), 0) FROM Produto p WHERE p.ativo = true")

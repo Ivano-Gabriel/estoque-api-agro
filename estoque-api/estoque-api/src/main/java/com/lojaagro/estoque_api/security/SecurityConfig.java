@@ -48,6 +48,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ping").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(HttpMethod.GET, "/relatorios/whatsapp")
+                    .hasAnyRole("ADMIN", "FUNCIONARIA")
                 .requestMatchers(
                         "/dashboard/**",
                         "/estatisticas/**",
