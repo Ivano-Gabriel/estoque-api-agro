@@ -8,6 +8,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Component
 public class AdminInitializer implements CommandLineRunner {
 
@@ -36,7 +38,16 @@ public class AdminInitializer implements CommandLineRunner {
         }
 
         String emailNormalizado = adminEmail.trim().toLowerCase();
-        if (repository.existsByEmail(emailNormalizado)) {
+        Optional<Usuario> usuarioExistente = repository.findByEmail(emailNormalizado);
+        if (usuarioExistente.isPresent()) {
+            Usuario admin = usuarioExistente.get();
+            if (admin.getRole() != UsuarioRole.ADMIN) {
+                throw new IllegalStateException("ADMIN_EMAIL ja pertence a um usuario sem perfil ADMIN");
+            }
+            if (!passwordEncoder.matches(adminPassword, admin.getSenha())) {
+                admin.setSenha(passwordEncoder.encode(adminPassword));
+                repository.save(admin);
+            }
             return;
         }
 
