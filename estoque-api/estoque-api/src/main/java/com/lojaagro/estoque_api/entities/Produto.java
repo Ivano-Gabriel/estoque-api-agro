@@ -1,30 +1,38 @@
 package com.lojaagro.estoque_api.entities;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.SQLDelete;
+import jakarta.persistence.Version;
 import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "produto")
-// Intercepta o DELETE e faz um UPDATE
-@SQLDelete(sql = "UPDATE produto SET ativo = false WHERE id = ?")
 // Sempre que buscar produtos, traz apenas os ativos
 @SQLRestriction("ativo = true")
 public class Produto {
 
     private String nome;
     private String tipo;
-    private double preco; 
+    @jakarta.persistence.Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal preco;
+
+    @jakarta.persistence.Column(
+            nullable = false,
+            precision = 19,
+            scale = 2,
+            columnDefinition = "numeric(19,2) default 0.00")
+    private BigDecimal custoMedio = BigDecimal.ZERO.setScale(2);
    
     private LocalDate dataValidade;
 
-    @ManyToOne(cascade = jakarta.persistence.CascadeType.ALL)
+    @ManyToOne(optional = false)
     private Categoria categoria;
     
     public Produto() {}
@@ -33,15 +41,19 @@ public class Produto {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @jakarta.persistence.Column(nullable = false, columnDefinition = "bigint default 0")
+    private long versao;
+
     private int quantidadeEstoque = 0;
     
     // NOVO CAMPO: Controla se o produto foi "deletado"
     private boolean ativo = true;
 
-    public Produto(String nome, String tipo, double preco, LocalDate dataValidade, Categoria categoria) {
+    public Produto(String nome, String tipo, BigDecimal preco, LocalDate dataValidade, Categoria categoria) {
         this.nome = nome;
         this.tipo = tipo;
-        this.preco = preco;
+        setPreco(preco);
         this.dataValidade = dataValidade;
         this.categoria = categoria;            
     }
@@ -50,25 +62,25 @@ public class Produto {
     public Long getId() { return id; }
     public String getNome() { return nome; }
     public String getTipo() { return tipo; }
-    public double getPreco() { return preco; }
+    public BigDecimal getPreco() { return preco; }
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public BigDecimal getCustoMedio() { return custoMedio; }
     public LocalDate getDataValidade() { return dataValidade; }
     public Categoria getCategoria() { return categoria; }
     public int getQuantidadeEstoque() { return quantidadeEstoque; }
     public boolean isAtivo() { return ativo; } // Getter do ativo
 
     // Setters de Configuração Base
-    public void setPreco(double novoPreco) {
-        if (novoPreco <= 0) {
-            System.out.println("ERRO: O preço deve ser maior que zero.");
-            return; 
+    public void setPreco(BigDecimal novoPreco) {
+        if (novoPreco == null || novoPreco.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O preço deve ser maior que zero.");
         }
-        this.preco = novoPreco;
+        this.preco = novoPreco.setScale(2, RoundingMode.HALF_UP);
     }
 
     public void setQuantidadeEstoque(int novaQuantidade) {
         if (novaQuantidade < 0) {
-            System.out.println("ERRO: Estoque não pode ser negativo.");
-            return;
+            throw new IllegalArgumentException("Estoque não pode ser negativo.");
         }   
         this.quantidadeEstoque = novaQuantidade;
     }
@@ -77,29 +89,67 @@ public class Produto {
         this.ativo = ativo;
     }
 
+    public void atualizarDados(String nome,
+                               String tipo,
+                               BigDecimal preco,
+                               LocalDate dataValidade,
+                               Categoria categoria) {
+        if (nome == null || nome.isBlank()) {
+            throw new IllegalArgumentException("O nome do produto é obrigatório.");
+        }
+        if (tipo == null || tipo.isBlank()) {
+            throw new IllegalArgumentException("O tipo do produto é obrigatório.");
+        }
+        if (categoria == null) {
+            throw new IllegalArgumentException("A categoria do produto é obrigatória.");
+        }
+
+        this.nome = nome.trim();
+        this.tipo = tipo.trim();
+        setPreco(preco);
+        this.dataValidade = dataValidade;
+        this.categoria = categoria;
+    }
+
+    public void inicializarEstoque(int quantidade, BigDecimal custoUnitario) {
+        setQuantidadeEstoque(quantidade);
+        if (quantidade == 0) {
+            this.custoMedio = BigDecimal.ZERO.setScale(2);
+            return;
+        }
+        if (custoUnitario == null || custoUnitario.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Informe o custo unitário do estoque inicial.");
+        }
+        this.custoMedio = custoUnitario.setScale(2, RoundingMode.HALF_UP);
+    }
+
     // MÉTODOS DE NEGÓCIO (A Inteligência)
     public void venderProduto(int quantidadeComprada) {
         if (quantidadeComprada <= 0) {
-            System.out.println("ERRO: Quantidade de venda deve ser no mínimo 1.");
-            return;
+            throw new IllegalArgumentException("Quantidade de venda deve ser no mínimo 1.");
         }
         if (quantidadeComprada > this.quantidadeEstoque) {
-            System.out.println("ERRO: Estoque insuficiente para " + this.nome + ". Venda bloqueada.");
-            return;
+            throw new IllegalArgumentException("Estoque insuficiente para " + this.nome + ".");
         }
         
         this.quantidadeEstoque = this.quantidadeEstoque - quantidadeComprada;
-        System.out.println("SUCESSO: Venda de " + quantidadeComprada + "x " + this.nome + " realizada. Estoque restante: " + this.quantidadeEstoque);
     }
 
-    public void comprarProduto(int quantidadeAbastecida) {
+    public void comprarProduto(int quantidadeAbastecida, BigDecimal custoCompra) {
         if (quantidadeAbastecida <= 0) {
-            System.out.println("ERRO: A quantidade de abastecimento deve ser no mínimo 1.");
-            return;
+            throw new IllegalArgumentException("A quantidade de abastecimento deve ser no mínimo 1.");
         }
-        
-        this.quantidadeEstoque = this.quantidadeEstoque + quantidadeAbastecida;
-        System.out.println("SUCESSO: Estoque de " + this.nome + " abastecido. Novo total: " + this.quantidadeEstoque);
+        if (custoCompra == null || custoCompra.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O custo da reposição deve ser maior que zero.");
+        }
+
+        BigDecimal valorAtual = custoMedio.multiply(BigDecimal.valueOf(quantidadeEstoque));
+        BigDecimal valorCompra = custoCompra.multiply(BigDecimal.valueOf(quantidadeAbastecida));
+        int novaQuantidade = quantidadeEstoque + quantidadeAbastecida;
+
+        this.custoMedio = valorAtual.add(valorCompra)
+                .divide(BigDecimal.valueOf(novaQuantidade), 2, RoundingMode.HALF_UP);
+        this.quantidadeEstoque = novaQuantidade;
     }
 
     @Override

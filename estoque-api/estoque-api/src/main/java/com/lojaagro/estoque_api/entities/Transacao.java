@@ -2,6 +2,8 @@ package com.lojaagro.estoque_api.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Entity
 public class Transacao {
@@ -24,11 +26,25 @@ public class Transacao {
     @Column(nullable = false)
     private int quantidade;
     
-    @Column(nullable = false)
-    private double precoUnitario;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal precoUnitario;
     
-    @Column(nullable = false)
-    private double valorTotal;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal valorTotal;
+
+    @Column(
+            nullable = false,
+            precision = 19,
+            scale = 2,
+            columnDefinition = "numeric(19,2) default 0.00")
+    private BigDecimal custoUnitario = BigDecimal.ZERO.setScale(2);
+
+    @Column(
+            nullable = false,
+            precision = 19,
+            scale = 2,
+            columnDefinition = "numeric(19,2) default 0.00")
+    private BigDecimal lucro = BigDecimal.ZERO.setScale(2);
     
     @Column(nullable = false)
     private LocalDateTime data;
@@ -39,13 +55,13 @@ public class Transacao {
     public Transacao() {}
     
     public Transacao(Produto produto, Usuario usuario, String tipo, int quantidade, 
-                     double precoUnitario, double valorTotal, String descricao) {
+                     BigDecimal precoUnitario, BigDecimal valorTotal, String descricao) {
         this.produto = produto;
         this.usuario = usuario;
         this.tipo = tipo;
         this.quantidade = quantidade;
-        this.precoUnitario = precoUnitario;
-        this.valorTotal = valorTotal;
+        setPrecoUnitario(precoUnitario);
+        setValorTotal(valorTotal);
         this.data = LocalDateTime.now();
         this.descricao = descricao;
     }
@@ -56,8 +72,10 @@ public class Transacao {
     public Usuario getUsuario() { return usuario; }
     public String getTipo() { return tipo; }
     public int getQuantidade() { return quantidade; }
-    public double getPrecoUnitario() { return precoUnitario; }
-    public double getValorTotal() { return valorTotal; }
+    public BigDecimal getPrecoUnitario() { return precoUnitario; }
+    public BigDecimal getValorTotal() { return valorTotal; }
+    public BigDecimal getCustoUnitario() { return custoUnitario; }
+    public BigDecimal getLucro() { return lucro; }
     public LocalDateTime getData() { return data; }
     public String getDescricao() { return descricao; }
     
@@ -67,8 +85,22 @@ public class Transacao {
     public void setUsuario(Usuario usuario) { this.usuario = usuario; }
     public void setTipo(String tipo) { this.tipo = tipo; }
     public void setQuantidade(int quantidade) { this.quantidade = quantidade; }
-    public void setPrecoUnitario(double precoUnitario) { this.precoUnitario = precoUnitario; }
-    public void setValorTotal(double valorTotal) { this.valorTotal = valorTotal; }
+    public void setPrecoUnitario(BigDecimal precoUnitario) {
+        this.precoUnitario = precoUnitario.setScale(2, RoundingMode.HALF_UP);
+    }
+    public void setValorTotal(BigDecimal valorTotal) {
+        this.valorTotal = valorTotal.setScale(2, RoundingMode.HALF_UP);
+    }
+    public void setCustoUnitario(BigDecimal custoUnitario) {
+        this.custoUnitario = normalizar(custoUnitario);
+    }
+    public void setLucro(BigDecimal lucro) {
+        this.lucro = normalizar(lucro);
+    }
     public void setData(LocalDateTime data) { this.data = data; }
     public void setDescricao(String descricao) { this.descricao = descricao; }
+
+    private BigDecimal normalizar(BigDecimal valor) {
+        return (valor == null ? BigDecimal.ZERO : valor).setScale(2, RoundingMode.HALF_UP);
+    }
 }

@@ -17,4 +17,9 @@ public class UsuarioService {
         return repository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
     }
+
+    public Usuario buscarPorEmail(String email) {
+        return repository.findByEmail(email)
+            .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+    }
 }
