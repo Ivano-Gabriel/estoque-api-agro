@@ -110,25 +110,29 @@ public class RelatorioWhatsappService {
             List<Produto> produtosCriticos) {
 
         StringBuilder mensagem = new StringBuilder();
-        mensagem.append("*RELATORIO DE ESTOQUE*\n")
-                .append("Periodo: ").append(periodo.rotulo)
+        mensagem.append("*RELATÓRIO DE ESTOQUE*\n")
+                .append("Período: ").append(periodo.rotulo)
                 .append(" (até agora)\n")
                 .append(inicio.format(DATA_HORA)).append(" a ")
                 .append(agora.format(DATA_HORA)).append("\n\n")
-                .append("*Movimentacao*\n")
+                .append("*Movimentação*\n")
                 .append("Vendas: ").append(quantidadeVendas)
-                .append(" operacoes / ").append(unidadesVendidas).append(" unidades\n")
-                .append("Reposicoes: ").append(quantidadeCompras)
-                .append(" operacoes / ").append(unidadesRepostas).append(" unidades\n")
+                .append(' ').append(rotuloOperacoes(quantidadeVendas))
+                .append(" / ").append(unidadesVendidas).append(' ')
+                .append(rotuloUnidades(unidadesVendidas)).append("\n")
+                .append("Reposições: ").append(quantidadeCompras)
+                .append(' ').append(rotuloOperacoes(quantidadeCompras))
+                .append(" / ").append(unidadesRepostas).append(' ')
+                .append(rotuloUnidades(unidadesRepostas)).append("\n")
                 .append("Total vendido: ").append(moeda(totalVendido)).append("\n")
                 .append("Total reposto: ").append(moeda(totalReposto)).append("\n")
                 .append("Lucro real: ").append(moeda(lucroReal)).append("\n")
-                .append("Saldo do periodo: ").append(moeda(saldo)).append("\n\n")
-                .append("*Estoque critico agora: ")
+                .append("Saldo do período: ").append(moeda(saldo)).append("\n\n")
+                .append("*Estoque crítico agora: ")
                 .append(produtosCriticos.size()).append("*\n");
 
         if (produtosCriticos.isEmpty()) {
-            mensagem.append("Nenhum produto em estoque critico.\n");
+            mensagem.append("Nenhum produto em estoque crítico.\n");
         } else {
             produtosCriticos.stream()
                     .limit(LIMITE_PRODUTOS_CRITICOS)
@@ -147,6 +151,14 @@ public class RelatorioWhatsappService {
         mensagem.append("\nGerado automaticamente pelo Estoque em ")
                 .append(agora.format(DATA_HORA)).append('.');
         return mensagem.toString();
+    }
+
+    private String rotuloOperacoes(int quantidade) {
+        return quantidade == 1 ? "operação" : "operações";
+    }
+
+    private String rotuloUnidades(int quantidade) {
+        return quantidade == 1 ? "unidade" : "unidades";
     }
 
     private String moeda(BigDecimal valor) {
@@ -168,7 +180,7 @@ public class RelatorioWhatsappService {
     }
 
     enum Periodo {
-        DIARIO("Diario") {
+        DIARIO("Diário") {
             @Override
             LocalDateTime inicio(LocalDateTime agora) {
                 return agora.toLocalDate().atStartOfDay();

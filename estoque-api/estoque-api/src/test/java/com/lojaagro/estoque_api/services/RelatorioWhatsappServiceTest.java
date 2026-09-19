@@ -48,6 +48,8 @@ class RelatorioWhatsappServiceTest {
         RelatorioWhatsappResponse resposta = service.gerar("diario");
 
         assertEquals("DIARIO", resposta.periodo());
+        assertTrue(resposta.mensagem().contains("Vendas: 1 operação / 2 unidades"));
+        assertTrue(resposta.mensagem().contains("Reposições: 1 operação / 3 unidades"));
         assertTrue(resposta.mensagem().contains("Total vendido: R$ 300,00"));
         assertTrue(resposta.mensagem().contains("Total reposto: R$ 300,00"));
         assertTrue(resposta.mensagem().contains("Lucro real: R$ 80,00"));
