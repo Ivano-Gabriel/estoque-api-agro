@@ -36,6 +36,7 @@ public class AdminInitializer implements CommandLineRunner {
         if (adminEmail.isBlank() || adminPassword.length() < 10) {
             throw new IllegalStateException("ADMIN_EMAIL e ADMIN_PASSWORD (mínimo 10 caracteres) devem ser configurados juntos");
         }
+        com.lojaagro.estoque_api.controllers.AuthController.validarSenha(adminPassword);
 
         String emailNormalizado = adminEmail.trim().toLowerCase();
         Optional<Usuario> usuarioExistente = repository.findByEmail(emailNormalizado);

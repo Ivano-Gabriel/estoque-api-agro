@@ -19,19 +19,25 @@ public class AuthController {
     private final UsuarioRepository repository;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+    private final com.lojaagro.estoque_api.security.LoginRateLimiter rateLimiter;
+    private final String senhaInexistente;
 
     public AuthController(UsuarioRepository repository, 
                           JwtUtil jwtUtil, 
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder,
+                          com.lojaagro.estoque_api.security.LoginRateLimiter rateLimiter) {
         this.repository = repository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiter = rateLimiter;
+        this.senhaInexistente = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
     }
 
     @PostMapping("/registrar")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> registrar(@Valid @RequestBody CriarUsuarioRequest request) {
-        String email = request.email().trim().toLowerCase();
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+        validarSenha(request.senha());
         if (repository.existsByEmail(email)) {
             return ResponseEntity.status(409).body("Já existe um usuário com este e-mail.");
         }
@@ -46,18 +52,24 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
-        String email = request.email().trim().toLowerCase();
-        Usuario usuario = repository.findByEmail(email)
-                .filter(u -> passwordEncoder.matches(request.senha(), u.getSenha()))
-                .orElse(null);
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+        rateLimiter.verificar(email);
+        Usuario usuario = repository.findByEmail(email).orElse(null);
+        boolean confere = request.senha().getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72
+                && passwordEncoder.matches(request.senha(), usuario == null ? senhaInexistente : usuario.getSenha());
 
-        if (usuario == null) {
+        if (usuario == null || !usuario.isAtivo() || !confere) {
             return ResponseEntity.status(401).body("Email ou senha inválidos.");
         }
 
         return ResponseEntity.ok(new LoginResponse(
-                jwtUtil.gerarToken(usuario.getEmail()),
+                jwtUtil.gerarToken(usuario),
                 usuario.getEmail(),
                 usuario.getRole()));
+    }
+    public static void validarSenha(String senha) {
+        if (senha == null || senha.length() < 10 || senha.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("A senha deve ter pelo menos 10 caracteres e no máximo 72 bytes.");
+        }
     }
 }

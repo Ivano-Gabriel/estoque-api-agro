@@ -145,7 +145,8 @@ public class ProdutoImportacaoService {
                 return erroGeral("A planilha não possui abas.");
             }
 
-            Sheet sheet = workbook.getSheetAt(0);
+            Sheet sheet = workbook.getSheet("PRODUTOS");
+            if (sheet == null) sheet = workbook.getSheetAt(0);
             if (sheet.getLastRowNum() > MAXIMO_LINHAS_FISICAS) {
                 return erroGeral("A planilha possui linhas demais. Use o modelo com até 1.000 produtos.");
             }
@@ -206,7 +207,7 @@ public class ProdutoImportacaoService {
                     String chave = chaveProduto(nome, categoria);
                     if (!chaves.add(chave)) {
                         erros.add(new ImportacaoPlanilhaErro(
-                                numeroLinha, "nome", "Produto duplicado na planilha ou no estoque atual."));
+                                numeroLinha, "nome", "Produto duplicado na planilha, no estoque ou na lixeira. Restaure o cadastro existente."));
                     }
                 }
 
@@ -332,7 +333,11 @@ public class ProdutoImportacaoService {
                 }
                 valor = new BigDecimal(texto);
             }
-            return valor.setScale(2, RoundingMode.HALF_UP);
+            if (!campo.equals("quantidade") && (valor.precision() - valor.scale() > 17 || valor.stripTrailingZeros().scale() > 2)) {
+                erros.add(new ImportacaoPlanilhaErro(linha, campo, "Use até 17 dígitos inteiros e 2 casas decimais."));
+                return null;
+            }
+            return campo.equals("quantidade") ? valor : valor.setScale(2, RoundingMode.HALF_UP);
         } catch (NumberFormatException exception) {
             erros.add(new ImportacaoPlanilhaErro(linha, campo, "Valor numérico inválido."));
             return null;

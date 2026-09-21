@@ -1,0 +1,44 @@
+package com.lojaagro.estoque_api.services;
+
+import com.lojaagro.estoque_api.dto.MovimentacaoRequest;
+import com.lojaagro.estoque_api.entities.OperacaoEstoque;
+import com.lojaagro.estoque_api.entities.Usuario;
+import com.lojaagro.estoque_api.repositories.OperacaoEstoqueRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
+
+@Service
+public class MovimentacaoService {
+    private final OperacaoEstoqueRepository operacoes;
+    private final FluxoCaixaService caixa;
+    private final ProdutoService produtos;
+
+    public MovimentacaoService(OperacaoEstoqueRepository operacoes, FluxoCaixaService caixa, ProdutoService produtos) {
+        this.operacoes = operacoes; this.caixa = caixa; this.produtos = produtos;
+    }
+
+    @Transactional
+    public void executar(String chave, boolean venda, Long produtoId, MovimentacaoRequest dados, Usuario usuario) {
+        UUID id;
+        try {
+            id = UUID.fromString(chave);
+            if (!id.toString().equalsIgnoreCase(chave)) throw new IllegalArgumentException();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Atualize o aplicativo: Idempotency-Key deve ser um UUID válido.");
+        }
+        caixa.bloquearOperacoes();
+        String assinatura = usuario.getId() + "|" + venda + "|" + produtoId + "|" + dados.quantidade()
+                + "|" + dados.preco().stripTrailingZeros().toPlainString();
+        var anterior = operacoes.findById(id);
+        if (anterior.isPresent()) {
+            if (!anterior.get().getAssinatura().equals(assinatura)) {
+                throw new IllegalArgumentException("Chave de operação já utilizada com outros dados.");
+            }
+            return;
+        }
+        if (venda) produtos.venderComLucro(produtoId, dados.quantidade(), dados.preco(), usuario);
+        else produtos.comprarComCusto(produtoId, dados.quantidade(), dados.preco(), usuario);
+        operacoes.save(new OperacaoEstoque(id, assinatura));
+    }
+}

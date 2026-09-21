@@ -52,7 +52,7 @@ class RelatorioWhatsappServiceTest {
         assertTrue(resposta.mensagem().contains("Reposições: 1 operação / 3 unidades"));
         assertTrue(resposta.mensagem().contains("Total vendido: R$ 300,00"));
         assertTrue(resposta.mensagem().contains("Total reposto: R$ 300,00"));
-        assertTrue(resposta.mensagem().contains("Lucro real: R$ 80,00"));
+        assertTrue(resposta.mensagem().contains("Lucro bruto das vendas: R$ 80,00"));
         assertTrue(resposta.mensagem().contains("Racao Premium: 4 un"));
         assertTrue(resposta.url().startsWith("https://wa.me/5582999999999?text="));
     }

@@ -16,6 +16,17 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(Exception ex) {
+        return ResponseEntity.status(404).body(Map.of("erro", "Recurso não encontrado.", "status", 404));
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleStatus(org.springframework.web.server.ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of("erro", ex.getReason() == null ? "Solicitação inválida." : ex.getReason(), "status", ex.getStatusCode().value()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
         Map<String, Object> erro = new HashMap<>();

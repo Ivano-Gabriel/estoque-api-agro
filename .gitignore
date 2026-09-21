@@ -1,0 +1,6 @@
+# Backups e segredos locais nunca entram no repositório.
+*.dump
+*.backup
+.env
+.env.local
+.attach_pid*

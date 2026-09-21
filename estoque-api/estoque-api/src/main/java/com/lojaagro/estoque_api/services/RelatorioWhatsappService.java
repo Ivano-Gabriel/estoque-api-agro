@@ -126,7 +126,7 @@ public class RelatorioWhatsappService {
                 .append(rotuloUnidades(unidadesRepostas)).append("\n")
                 .append("Total vendido: ").append(moeda(totalVendido)).append("\n")
                 .append("Total reposto: ").append(moeda(totalReposto)).append("\n")
-                .append("Lucro real: ").append(moeda(lucroReal)).append("\n")
+                .append("Lucro bruto das vendas: ").append(moeda(lucroReal)).append("\n")
                 .append("Saldo do período: ").append(moeda(saldo)).append("\n\n")
                 .append("*Estoque crítico agora: ")
                 .append(produtosCriticos.size()).append("*\n");

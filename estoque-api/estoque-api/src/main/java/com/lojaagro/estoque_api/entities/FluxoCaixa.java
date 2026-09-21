@@ -9,8 +9,7 @@ import java.math.RoundingMode;
 public class FluxoCaixa {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id = 1L;
 
     @Version
     @Column(nullable = false, columnDefinition = "bigint default 0")

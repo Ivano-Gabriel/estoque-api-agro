@@ -33,18 +33,8 @@ public class EstatisticasController {
         stats.put("criticos", criticos);
         stats.put("patrimonio", patrimonio);
 
-        // Como ainda não temos uma tabela de "Histórico de Patrimônio por Mês", 
-        // vamos simular a curva do gráfico baseada no patrimônio atual para o visual não quebrar.
-        // No futuro, conectaremos isso com a tabela de Transações!
-        List<Map<String, Object>> grafico = Arrays.asList(
-            Map.of("mes", "Jan", "patrimonio", patrimonio.multiply(new BigDecimal("0.40"))),
-            Map.of("mes", "Fev", "patrimonio", patrimonio.multiply(new BigDecimal("0.55"))),
-            Map.of("mes", "Mar", "patrimonio", patrimonio.multiply(new BigDecimal("0.70"))),
-            Map.of("mes", "Abr", "patrimonio", patrimonio.multiply(new BigDecimal("0.85"))),
-            Map.of("mes", "Mai", "patrimonio", patrimonio.multiply(new BigDecimal("0.95"))),
-            Map.of("mes", "Jun", "patrimonio", patrimonio)
-        );
-        stats.put("dadosGrafico", grafico);
+        // Sem série histórica armazenada, não inventamos evolução mensal.
+        stats.put("dadosGrafico", List.of());
 
         return ResponseEntity.ok(stats);
     }

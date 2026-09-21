@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/admin/ferramentas-teste")
 @Profile("ferramentas-teste")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.test-tools.enabled", havingValue = "true")
 @PreAuthorize("hasRole('ADMIN')")
 public class FerramentasTesteController {
 

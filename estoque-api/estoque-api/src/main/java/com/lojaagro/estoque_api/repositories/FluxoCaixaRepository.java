@@ -6,5 +6,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FluxoCaixaRepository extends JpaRepository<FluxoCaixa, Long> {
-    // O sistema terá apenas UM registro de fluxo de caixa
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT f FROM FluxoCaixa f WHERE f.id = 1")
+    java.util.Optional<FluxoCaixa> bloquearCaixa();
 }

@@ -33,9 +33,10 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String gerarToken(String email) {
+    public String gerarToken(com.lojaagro.estoque_api.entities.Usuario usuario) {
         return Jwts.builder()
-                .subject(email)
+                .subject(usuario.getEmail())
+                .claim("sv", usuario.getVersaoSessao())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiracao))
                 .signWith(getChave())
@@ -58,5 +59,13 @@ public class JwtUtil {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean sessaoAtual(String token, com.lojaagro.estoque_api.entities.Usuario usuario) {
+        try {
+            Integer versao = Jwts.parser().verifyWith(getChave()).build()
+                    .parseSignedClaims(token).getPayload().get("sv", Integer.class);
+            return usuario.isAtivo() && versao != null && versao == usuario.getVersaoSessao();
+        } catch (Exception e) { return false; }
     }
 }

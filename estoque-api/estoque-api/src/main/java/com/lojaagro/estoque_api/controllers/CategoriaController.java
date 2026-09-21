@@ -30,8 +30,8 @@ public class CategoriaController {
     }
 
     @PostMapping
-    public ResponseEntity<Categoria> salvar(@RequestBody Categoria categoria) {
-        return ResponseEntity.ok(service.salvar(categoria));
+    public ResponseEntity<Categoria> salvar(@jakarta.validation.Valid @RequestBody com.lojaagro.estoque_api.dto.CategoriaRequest categoria) {
+        return ResponseEntity.ok(service.salvar(new Categoria(categoria.nome().trim())));
     }
 
 

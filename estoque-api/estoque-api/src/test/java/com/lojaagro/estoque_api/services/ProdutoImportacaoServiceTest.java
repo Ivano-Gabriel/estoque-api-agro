@@ -24,6 +24,24 @@ import static org.mockito.Mockito.when;
 class ProdutoImportacaoServiceTest {
 
     @Test
+    void deveRejeitarQuantidadeFracionadaSemArredondar() throws Exception {
+        ProdutoService produtos = mock(ProdutoService.class);
+        ProdutoRepository repository = mock(ProdutoRepository.class);
+        when(repository.findAll()).thenReturn(List.of());
+        ProdutoImportacaoService service = new ProdutoImportacaoService(produtos, repository);
+        byte[] bytes;
+        try (Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(service.gerarModelo()));
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            workbook.getSheet("PRODUTOS").getRow(1).getCell(4).setCellValue(1.001);
+            workbook.write(output); bytes = output.toByteArray();
+        }
+        var resultado = service.importar(new MockMultipartFile("arquivo", "produtos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes));
+        assertEquals(0, resultado.totalImportado());
+        assertTrue(resultado.erros().stream().anyMatch(erro -> erro.campo().equals("quantidade")));
+        verify(produtos, never()).criar(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void deveImportarModeloValido() {
         ProdutoService produtoService = mock(ProdutoService.class);
         ProdutoRepository repository = mock(ProdutoRepository.class);

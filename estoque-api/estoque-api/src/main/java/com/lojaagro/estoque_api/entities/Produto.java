@@ -10,12 +10,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "produto")
-// Sempre que buscar produtos, traz apenas os ativos
-@SQLRestriction("ativo = true")
+// O catálogo filtra ativos no repository. O histórico precisa enxergar os inativos.
 public class Produto {
 
     private String nome;
@@ -145,6 +143,9 @@ public class Produto {
 
         BigDecimal valorAtual = custoMedio.multiply(BigDecimal.valueOf(quantidadeEstoque));
         BigDecimal valorCompra = custoCompra.multiply(BigDecimal.valueOf(quantidadeAbastecida));
+        if (quantidadeAbastecida > Integer.MAX_VALUE - quantidadeEstoque) {
+            throw new IllegalArgumentException("Quantidade excede o limite de estoque.");
+        }
         int novaQuantidade = quantidadeEstoque + quantidadeAbastecida;
 
         this.custoMedio = valorAtual.add(valorCompra)

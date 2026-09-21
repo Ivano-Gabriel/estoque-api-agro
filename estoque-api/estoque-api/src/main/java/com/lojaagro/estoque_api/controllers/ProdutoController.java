@@ -29,15 +29,18 @@ public class ProdutoController {
     private final UsuarioService usuarioService;
     private final ProdutoRepository produtoRepository; // <-- Adicionado aqui!
     private final ProdutoImportacaoService importacaoService;
+    private final com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService;
 
     public ProdutoController(ProdutoService service,
                              UsuarioService usuarioService,
                              ProdutoRepository produtoRepository,
-                             ProdutoImportacaoService importacaoService) {
+                             ProdutoImportacaoService importacaoService,
+                             com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService) {
         this.service = service;
         this.usuarioService = usuarioService;
         this.produtoRepository = produtoRepository; // <-- Injetado aqui!
         this.importacaoService = importacaoService;
+        this.movimentacaoService = movimentacaoService;
     }
 
     @GetMapping
@@ -99,29 +102,29 @@ public class ProdutoController {
 
     @PutMapping("/{id}/restaurar")
     public ResponseEntity<Void> restaurarProduto(@PathVariable Long id) {
-        produtoRepository.restaurarProduto(id);
+        service.restaurar(id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/venda-com-lucro")
-    public ResponseEntity<Produto> vendaComLucro(
+    public ResponseEntity<Void> vendaComLucro(
             @PathVariable Long id,
             @Valid @RequestBody MovimentacaoRequest dados,
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestHeader(value = "Idempotency-Key", required = false) String chave) {
         Usuario usuario = usuarioService.buscarPorEmail(authentication.getName());
-        Produto produto = service.venderComLucro(id, dados.quantidade(), dados.preco(), usuario);
-        
-        return ResponseEntity.ok(produto);
+        movimentacaoService.executar(chave, true, id, dados, usuario);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/compra-com-custo")
-    public ResponseEntity<Produto> compraComCusto(
+    public ResponseEntity<Void> compraComCusto(
             @PathVariable Long id,
             @Valid @RequestBody MovimentacaoRequest dados,
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestHeader(value = "Idempotency-Key", required = false) String chave) {
         Usuario usuario = usuarioService.buscarPorEmail(authentication.getName());
-        Produto produto = service.comprarComCusto(id, dados.quantidade(), dados.preco(), usuario);
-        
-        return ResponseEntity.ok(produto);
+        movimentacaoService.executar(chave, false, id, dados, usuario);
+        return ResponseEntity.noContent().build();
     }
 }

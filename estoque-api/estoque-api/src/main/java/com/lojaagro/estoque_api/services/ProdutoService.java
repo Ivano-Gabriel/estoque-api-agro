@@ -34,15 +34,17 @@ public class ProdutoService {
 
     // === MÉTODOS EXISTENTES (JÁ TINHA) ===
     public List<Produto> buscarTodos() {
-        return repository.findAll();
+        return repository.findByAtivoTrue();
     }
 
     public Optional<Produto> buscarPorId(Long id) {
-        return repository.findById(id);
+        return repository.findByIdAndAtivoTrue(id);
     }
 
     @Transactional
     public Produto criar(ProdutoRequest request) {
+        fluxoCaixaService.bloquearOperacoes();
+        validarDuplicado(request.nome(), request.categoria().nome(), null);
         Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
         Produto produto = new Produto();
         produto.atualizarDados(
@@ -54,12 +56,14 @@ public class ProdutoService {
 
     @Transactional
     public Produto atualizar(Long id, ProdutoRequest request) {
-        Produto produto = repository.findById(id)
+        fluxoCaixaService.bloquearOperacoes();
+        validarDuplicado(request.nome(), request.categoria().nome(), id);
+        Produto produto = repository.findByIdAndAtivoTrue(id)
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
         Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
         produto.atualizarDados(
                 request.nome(), request.tipo(), request.preco(),
-                request.dataValidade(), categoria);
+                request.dataValidade() == null ? produto.getDataValidade() : request.dataValidade(), categoria);
         return repository.save(produto);
     }
 
@@ -69,9 +73,11 @@ public class ProdutoService {
                 .orElseGet(() -> categoriaRepository.save(new Categoria(nomeNormalizado)));
     }
 
+    @Transactional
     public void deletar(Long id) {
-        Produto produto = repository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+        fluxoCaixaService.bloquearOperacoes();
+        Produto produto = repository.findByIdAndAtivoTrue(id)
+            .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
             
         // Forçamos o false na mão e salvamos! 
         // Assim, até os produtos velhos obedecem à lixeira.
@@ -83,7 +89,8 @@ public class ProdutoService {
     
     @Transactional
     public Produto venderComLucro(Long produtoId, int quantidade, BigDecimal precoVenda, Usuario usuario) {
-        Produto produto = repository.findById(produtoId)
+        fluxoCaixaService.bloquearOperacoes();
+        Produto produto = repository.findByIdAndAtivoTrue(produtoId)
             .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
         
         if (produto.getQuantidadeEstoque() < quantidade) {
@@ -117,7 +124,8 @@ public class ProdutoService {
 
     @Transactional
     public Produto comprarComCusto(Long produtoId, int quantidade, BigDecimal precoCompra, Usuario usuario) {
-        Produto produto = repository.findById(produtoId)
+        fluxoCaixaService.bloquearOperacoes();
+        Produto produto = repository.findByIdAndAtivoTrue(produtoId)
             .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
         
         produto.comprarProduto(quantidade, precoCompra);
@@ -139,5 +147,20 @@ public class ProdutoService {
         fluxoCaixaService.adicionarSaida(valorTotal);
         
         return produto;
+    }
+    @Transactional
+    public void restaurar(Long id) {
+        fluxoCaixaService.bloquearOperacoes();
+        Produto produto = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
+        validarDuplicado(produto.getNome(), produto.getCategoria().getNome(), id);
+        produto.setAtivo(true);
+        repository.save(produto);
+    }
+
+    private void validarDuplicado(String nome, String categoria, Long ignorarId) {
+        if (repository.contarDuplicados(nome, categoria, ignorarId) > 0) {
+            throw new IllegalArgumentException("Já existe um produto com esse nome e categoria, inclusive na lixeira. Restaure ou edite o cadastro existente.");
+        }
     }
 }

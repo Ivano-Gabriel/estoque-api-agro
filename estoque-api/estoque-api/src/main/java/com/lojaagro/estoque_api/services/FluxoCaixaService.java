@@ -36,6 +36,13 @@ public class FluxoCaixaService {
 
     private FluxoCaixa getOrCreateFluxo() {
         return repository.findById(FLUXO_ID)
-            .orElseGet(() -> repository.save(new FluxoCaixa()));
+            .orElseThrow(() -> new IllegalStateException("Caixa não inicializado."));
+    }
+
+    // Uma trava no banco, compartilhada entre instâncias, serializa as operações da loja.
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void bloquearOperacoes() {
+        repository.bloquearCaixa()
+                .orElseThrow(() -> new IllegalStateException("Caixa não inicializado."));
     }
 }

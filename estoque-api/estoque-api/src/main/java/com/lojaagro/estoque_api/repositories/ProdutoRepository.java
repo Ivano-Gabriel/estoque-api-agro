@@ -12,6 +12,14 @@ import java.math.BigDecimal;
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
+    List<Produto> findByAtivoTrue();
+    java.util.Optional<Produto> findByIdAndAtivoTrue(Long id);
+
+    @Query("SELECT COUNT(p) FROM Produto p WHERE LOWER(TRIM(p.nome)) = LOWER(TRIM(:nome)) "
+            + "AND LOWER(TRIM(p.categoria.nome)) = LOWER(TRIM(:categoria)) "
+            + "AND (:ignorarId IS NULL OR p.id <> :ignorarId)")
+    long contarDuplicados(String nome, String categoria, Long ignorarId);
+
     // Busca apenas os inativos (Lixeira) ignorando o filtro padrão
     @Query(value = "SELECT * FROM produto WHERE ativo = false", nativeQuery = true)
     List<Produto> buscarLixeira();

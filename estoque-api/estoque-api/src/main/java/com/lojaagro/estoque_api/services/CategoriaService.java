@@ -11,9 +11,11 @@ import java.util.Optional;
 public class CategoriaService {
 
     private final CategoriaRepository repository;
+    private final FluxoCaixaService caixa;
 
-    public CategoriaService(CategoriaRepository repository) {
+    public CategoriaService(CategoriaRepository repository, FluxoCaixaService caixa) {
         this.repository = repository;
+        this.caixa = caixa;
     }
 
 
@@ -27,8 +29,11 @@ public class CategoriaService {
     }
 
 
+    @org.springframework.transaction.annotation.Transactional
     public Categoria salvar(Categoria categoria) {
-        return repository.save(categoria);
+        caixa.bloquearOperacoes();
+        return repository.findByNomeIgnoreCase(categoria.getNome().trim())
+                .orElseGet(() -> repository.save(new Categoria(categoria.getNome().trim())));
     }
 
 

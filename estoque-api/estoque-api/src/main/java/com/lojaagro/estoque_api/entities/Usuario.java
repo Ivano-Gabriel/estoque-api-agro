@@ -22,9 +22,20 @@ public class Usuario {
     @Column(nullable = false, columnDefinition = "varchar(20) default 'FUNCIONARIA'")
     private UsuarioRole role = UsuarioRole.FUNCIONARIA;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean ativo = true;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int versaoSessao = 0;
+
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private long versao;
+
     public Usuario() {}
     public void setSenha(String senha) {
-    this.senha = senha;
+        if (this.senha != null && !this.senha.equals(senha)) revogarSessoes();
+        this.senha = senha;
     }
     
     public Usuario(String email, String senha) {
@@ -38,4 +49,12 @@ public class Usuario {
     public UsuarioRole getRole() { return role; }
     public void setEmail(String email) { this.email = email; }
     public void setRole(UsuarioRole role) { this.role = role; }
+    public boolean isAtivo() { return ativo; }
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public int getVersaoSessao() { return versaoSessao; }
+    public void revogarSessoes() { versaoSessao++; }
+    public void setAtivo(boolean ativo) {
+        if (this.ativo != ativo) revogarSessoes();
+        this.ativo = ativo;
+    }
 }
