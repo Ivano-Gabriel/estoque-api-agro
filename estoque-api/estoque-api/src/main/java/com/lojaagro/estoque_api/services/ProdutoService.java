@@ -39,7 +39,7 @@ public class ProdutoService {
         Produto produto = new Produto();
         produto.setLoja(loja);
         produto.atualizarDados(request.nome(), request.tipo(), request.preco(), request.dataValidade(),
-                categoria, request.descricao(), request.imagemUrl());
+                categoria, request.descricao(), validarImagem(request.imagemUrl(), loja));
         produto.inicializarEstoque(request.quantidadeEstoque(), request.custoUnitario());
         return produtos.save(produto);
     }
@@ -54,7 +54,7 @@ public class ProdutoService {
         Categoria categoria = obterOuCriarCategoria(loja, request.categoria().nome());
         produto.atualizarDados(request.nome(), request.tipo(), request.preco(),
                 request.dataValidade() == null ? produto.getDataValidade() : request.dataValidade(),
-                categoria, request.descricao(), request.imagemUrl());
+                categoria, request.descricao(), validarImagem(request.imagemUrl(), loja));
         return produtos.save(produto);
     }
 
@@ -127,6 +127,14 @@ public class ProdutoService {
         if (!loja.isFinanceiroAtivo()) return;
         exigirPositivo(request.preco(), "Preço de venda");
         if (request.quantidadeEstoque() > 0) exigirPositivo(request.custoUnitario(), "Custo do estoque inicial");
+    }
+
+    private String validarImagem(String imagemUrl, Loja loja) {
+        if (imagemUrl == null || imagemUrl.isBlank()) return null;
+        if (!loja.isFotosAtivas()) {
+            throw new IllegalArgumentException("O módulo de fotos não está ativo para esta loja.");
+        }
+        return imagemUrl.trim();
     }
 
     private BigDecimal exigirPositivo(BigDecimal valor, String campo) {

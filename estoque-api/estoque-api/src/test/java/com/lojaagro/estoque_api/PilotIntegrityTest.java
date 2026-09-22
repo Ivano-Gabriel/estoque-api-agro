@@ -108,7 +108,7 @@ class PilotIntegrityTest {
     }
 
     @Test void lojasNaoEnxergamProdutosUmaDaOutra() {
-        Loja outra = lojas.saveAndFlush(new Loja("Outra loja", "outra-loja", false, "5582999999999"));
+        Loja outra = lojas.saveAndFlush(new Loja("Outra loja", "outra-loja", false, false, "5582999999999"));
         caixas.saveAndFlush(new FluxoCaixa(outra.getId(), outra));
         Produto exclusivo = produtos.criar(new ProdutoRequest("Camisa", "UNIDADE", null, null, null, 2,
                 new CategoriaRequest("Roupas"), "Camisa azul", null), outra);
@@ -116,6 +116,9 @@ class PilotIntegrityTest {
         assertEquals(1, produtos.buscarTodos(outra).size());
         assertTrue(produtos.buscarPorId(exclusivo.getId(), loja).isEmpty());
         assertTrue(produtos.buscarPorId(produto.getId(), outra).isEmpty());
+        ProdutoRequest comFoto = new ProdutoRequest("Camisa com foto", "UNIDADE", null, null, null, 1,
+                new CategoriaRequest("Roupas"), "Camisa preta", "https://res.cloudinary.com/test/image/upload/camisa.webp");
+        assertThrows(IllegalArgumentException.class, () -> produtos.criar(comFoto, outra));
     }
 
     @Test void permissoesBloqueioRevogacaoESenhaSaoAplicadosNaApi() throws Exception {

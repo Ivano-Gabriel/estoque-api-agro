@@ -18,7 +18,7 @@ public class LojaMigrationInitializer implements CommandLineRunner {
     public void run(String... args) {
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM loja", Long.class);
         if (total == null || total == 0) {
-            jdbc.update("INSERT INTO loja (nome, slug, ativa, financeiro_ativo, versao) VALUES (?, ?, true, true, 0)",
+            jdbc.update("INSERT INTO loja (nome, slug, ativa, financeiro_ativo, fotos_ativas, versao) VALUES (?, ?, true, true, false, 0)",
                     "Loja piloto", "loja-piloto");
         }
         Long lojaId = jdbc.queryForObject("SELECT id FROM loja ORDER BY id LIMIT 1", Long.class);
