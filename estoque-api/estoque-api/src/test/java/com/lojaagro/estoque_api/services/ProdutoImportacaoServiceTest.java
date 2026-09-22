@@ -3,6 +3,7 @@ package com.lojaagro.estoque_api.services;
 import com.lojaagro.estoque_api.dto.ImportacaoPlanilhaResultado;
 import com.lojaagro.estoque_api.dto.ProdutoRequest;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
+import com.lojaagro.estoque_api.entities.Loja;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -23,11 +24,18 @@ import static org.mockito.Mockito.when;
 
 class ProdutoImportacaoServiceTest {
 
+    private Loja loja() {
+        Loja loja = mock(Loja.class);
+        when(loja.getId()).thenReturn(1L);
+        when(loja.isFinanceiroAtivo()).thenReturn(true);
+        return loja;
+    }
+
     @Test
     void deveRejeitarQuantidadeFracionadaSemArredondar() throws Exception {
         ProdutoService produtos = mock(ProdutoService.class);
         ProdutoRepository repository = mock(ProdutoRepository.class);
-        when(repository.findAll()).thenReturn(List.of());
+        Loja loja = loja(); when(repository.findByLojaId(1L)).thenReturn(List.of());
         ProdutoImportacaoService service = new ProdutoImportacaoService(produtos, repository);
         byte[] bytes;
         try (Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(service.gerarModelo()));
@@ -35,17 +43,17 @@ class ProdutoImportacaoServiceTest {
             workbook.getSheet("PRODUTOS").getRow(1).getCell(4).setCellValue(1.001);
             workbook.write(output); bytes = output.toByteArray();
         }
-        var resultado = service.importar(new MockMultipartFile("arquivo", "produtos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes));
+        var resultado = service.importar(new MockMultipartFile("arquivo", "produtos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes), loja);
         assertEquals(0, resultado.totalImportado());
         assertTrue(resultado.erros().stream().anyMatch(erro -> erro.campo().equals("quantidade")));
-        verify(produtos, never()).criar(org.mockito.ArgumentMatchers.any());
+        verify(produtos, never()).criar(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void deveImportarModeloValido() {
         ProdutoService produtoService = mock(ProdutoService.class);
         ProdutoRepository repository = mock(ProdutoRepository.class);
-        when(repository.findAll()).thenReturn(List.of());
+        Loja loja = loja(); when(repository.findByLojaId(1L)).thenReturn(List.of());
         ProdutoImportacaoService service = new ProdutoImportacaoService(produtoService, repository);
 
         byte[] modelo = service.gerarModelo();
@@ -53,13 +61,13 @@ class ProdutoImportacaoServiceTest {
                 "arquivo", "produtos.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", modelo);
 
-        ImportacaoPlanilhaResultado resultado = service.importar(arquivo);
+        ImportacaoPlanilhaResultado resultado = service.importar(arquivo, loja);
 
         assertEquals(1, resultado.totalImportado());
         assertTrue(resultado.erros().isEmpty());
 
         ArgumentCaptor<ProdutoRequest> captor = ArgumentCaptor.forClass(ProdutoRequest.class);
-        verify(produtoService).criar(captor.capture());
+        verify(produtoService).criar(captor.capture(), org.mockito.ArgumentMatchers.eq(loja));
         assertEquals("Ração Premium 15kg", captor.getValue().nome());
         assertEquals(10, captor.getValue().quantidadeEstoque());
         assertEquals("100.00", captor.getValue().custoUnitario().toPlainString());
@@ -69,7 +77,7 @@ class ProdutoImportacaoServiceTest {
     void naoDeveGravarNenhumaLinhaQuandoUmaLinhaForInvalida() throws Exception {
         ProdutoService produtoService = mock(ProdutoService.class);
         ProdutoRepository repository = mock(ProdutoRepository.class);
-        when(repository.findAll()).thenReturn(List.of());
+        Loja loja = loja(); when(repository.findByLojaId(1L)).thenReturn(List.of());
         ProdutoImportacaoService service = new ProdutoImportacaoService(produtoService, repository);
 
         byte[] planilha;
@@ -98,11 +106,11 @@ class ProdutoImportacaoServiceTest {
                 "arquivo", "produtos.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", planilha);
 
-        ImportacaoPlanilhaResultado resultado = service.importar(arquivo);
+        ImportacaoPlanilhaResultado resultado = service.importar(arquivo, loja);
 
         assertEquals(0, resultado.totalImportado());
         assertTrue(resultado.erros().stream()
                 .anyMatch(erro -> erro.campo().equals("custo_unitario")));
-        verify(produtoService, never()).criar(org.mockito.ArgumentMatchers.any());
+        verify(produtoService, never()).criar(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 }

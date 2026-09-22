@@ -1,6 +1,7 @@
 package com.lojaagro.estoque_api.entities;
 
 public enum UsuarioRole {
+    SUPER_ADMIN,
     ADMIN,
     FUNCIONARIA,
     // Mantido temporariamente para ler usuários antigos já salvos no banco.

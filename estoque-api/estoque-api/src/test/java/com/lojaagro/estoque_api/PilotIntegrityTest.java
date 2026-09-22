@@ -37,25 +37,28 @@ class PilotIntegrityTest {
     @Autowired ProdutoImportacaoService importacao;
     @Autowired JwtUtil jwt;
     @Autowired PasswordEncoder encoder;
+    @Autowired LojaRepository lojas;
     @org.springframework.beans.factory.annotation.Value("${local.server.port}") int port;
     Usuario admin;
     Usuario funcionaria;
     Produto produto;
+    Loja loja;
 
     @BeforeEach void preparar() {
         operacoes.deleteAll(); transacoes.deleteAll(); produtoRepo.deleteAll(); categorias.deleteAll(); usuarios.deleteAll();
         FluxoCaixa caixa = caixas.findById(1L).orElseThrow();
         caixa.setTotalEntradas(BigDecimal.ZERO); caixa.setTotalSaidas(BigDecimal.ZERO); caixas.saveAndFlush(caixa);
+        loja = lojas.findAll().getFirst();
         admin = usuario("admin@teste.local", UsuarioRole.ADMIN);
         funcionaria = usuario("funcionaria@teste.local", UsuarioRole.FUNCIONARIA);
-        produto = produtos.criar(request("Ração Premium 15kg", LocalDate.of(2027, 1, 10)));
+        produto = produtos.criar(request("Ração Premium 15kg", LocalDate.of(2027, 1, 10)), loja);
     }
 
     Usuario usuario(String email, UsuarioRole role) {
-        Usuario u = new Usuario(email, encoder.encode("senha-teste-segura")); u.setRole(role); return usuarios.saveAndFlush(u);
+        Usuario u = new Usuario(email, encoder.encode("senha-teste-segura")); u.setRole(role); u.setLoja(loja); return usuarios.saveAndFlush(u);
     }
     ProdutoRequest request(String nome, LocalDate validade) {
-        return new ProdutoRequest(nome, "UNIDADE", new BigDecimal("150.00"), new BigDecimal("100.00"), validade, 10, new CategoriaRequest("Rações"));
+        return new ProdutoRequest(nome, "UNIDADE", new BigDecimal("150.00"), new BigDecimal("100.00"), validade, 10, new CategoriaRequest("Rações"), null, null);
     }
     MovimentacaoRequest venda(int quantidade) { return new MovimentacaoRequest(quantidade, new BigDecimal("150.00")); }
 
@@ -88,20 +91,31 @@ class PilotIntegrityTest {
 
     @Test void lixeiraPreservaHistoricoRelatorioEImpedeDuplicados() {
         movimentos.executar(UUID.randomUUID().toString(), true, produto.getId(), venda(2), admin);
-        produtos.deletar(produto.getId());
-        assertTrue(produtos.buscarTodos().isEmpty()); assertTrue(produtos.buscarPorId(produto.getId()).isEmpty());
+        produtos.deletar(produto.getId(), loja);
+        assertTrue(produtos.buscarTodos(loja).isEmpty()); assertTrue(produtos.buscarPorId(produto.getId(), loja).isEmpty());
         assertEquals(produto.getNome(), transacoes.findAll().getFirst().getProduto().getNome());
-        assertTrue(relatorios.gerar("DIARIO").mensagem().contains("Total vendido: R$ 300,00"));
-        assertThrows(IllegalArgumentException.class, () -> produtos.criar(request(produto.getNome(), null)));
-        var resultado = importacao.importar(new MockMultipartFile("arquivo", "modelo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", importacao.gerarModelo()));
+        assertTrue(relatorios.gerar("DIARIO", loja).mensagem().contains("Total vendido: R$ 300,00"));
+        assertThrows(IllegalArgumentException.class, () -> produtos.criar(request(produto.getNome(), null), loja));
+        var resultado = importacao.importar(new MockMultipartFile("arquivo", "modelo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", importacao.gerarModelo()), loja);
         assertEquals(0, resultado.totalImportado()); assertFalse(resultado.erros().isEmpty());
-        produtos.restaurar(produto.getId());
-        assertEquals(1, produtos.buscarTodos().size()); assertEquals(1, transacoes.count());
+        produtos.restaurar(produto.getId(), loja);
+        assertEquals(1, produtos.buscarTodos(loja).size()); assertEquals(1, transacoes.count());
     }
 
     @Test void editarSemDataPreservaValidade() {
-        produtos.atualizar(produto.getId(), request("Ração atualizada", null));
+        produtos.atualizar(produto.getId(), request("Ração atualizada", null), loja);
         assertEquals(LocalDate.of(2027, 1, 10), produtoRepo.findById(produto.getId()).orElseThrow().getDataValidade());
+    }
+
+    @Test void lojasNaoEnxergamProdutosUmaDaOutra() {
+        Loja outra = lojas.saveAndFlush(new Loja("Outra loja", "outra-loja", false, "5582999999999"));
+        caixas.saveAndFlush(new FluxoCaixa(outra.getId(), outra));
+        Produto exclusivo = produtos.criar(new ProdutoRequest("Camisa", "UNIDADE", null, null, null, 2,
+                new CategoriaRequest("Roupas"), "Camisa azul", null), outra);
+        assertEquals(1, produtos.buscarTodos(loja).size());
+        assertEquals(1, produtos.buscarTodos(outra).size());
+        assertTrue(produtos.buscarPorId(exclusivo.getId(), loja).isEmpty());
+        assertTrue(produtos.buscarPorId(produto.getId(), outra).isEmpty());
     }
 
     @Test void permissoesBloqueioRevogacaoESenhaSaoAplicadosNaApi() throws Exception {

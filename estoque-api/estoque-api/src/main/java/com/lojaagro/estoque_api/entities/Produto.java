@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
 
 @Entity
 @Table(name = "produto")
@@ -18,6 +20,17 @@ public class Produto {
 
     private String nome;
     private String tipo;
+
+    @jakarta.persistence.Column(length = 500)
+    private String descricao;
+
+    @jakarta.persistence.Column(length = 500)
+    private String imagemUrl;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "loja_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Loja loja;
     @jakarta.persistence.Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal preco;
 
@@ -60,6 +73,9 @@ public class Produto {
     public Long getId() { return id; }
     public String getNome() { return nome; }
     public String getTipo() { return tipo; }
+    public String getDescricao() { return descricao; }
+    public String getImagemUrl() { return imagemUrl; }
+    public Loja getLoja() { return loja; }
     public BigDecimal getPreco() { return preco; }
     @com.fasterxml.jackson.annotation.JsonIgnore
     public BigDecimal getCustoMedio() { return custoMedio; }
@@ -70,10 +86,10 @@ public class Produto {
 
     // Setters de Configuração Base
     public void setPreco(BigDecimal novoPreco) {
-        if (novoPreco == null || novoPreco.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("O preço deve ser maior que zero.");
+        if (novoPreco != null && novoPreco.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("O preço não pode ser negativo.");
         }
-        this.preco = novoPreco.setScale(2, RoundingMode.HALF_UP);
+        this.preco = (novoPreco == null ? BigDecimal.ZERO : novoPreco).setScale(2, RoundingMode.HALF_UP);
     }
 
     public void setQuantidadeEstoque(int novaQuantidade) {
@@ -91,7 +107,9 @@ public class Produto {
                                String tipo,
                                BigDecimal preco,
                                LocalDate dataValidade,
-                               Categoria categoria) {
+                               Categoria categoria,
+                               String descricao,
+                               String imagemUrl) {
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException("O nome do produto é obrigatório.");
         }
@@ -107,7 +125,11 @@ public class Produto {
         setPreco(preco);
         this.dataValidade = dataValidade;
         this.categoria = categoria;
+        this.descricao = descricao == null || descricao.isBlank() ? null : descricao.trim();
+        this.imagemUrl = imagemUrl == null || imagemUrl.isBlank() ? null : imagemUrl.trim();
     }
+
+    public void setLoja(Loja loja) { this.loja = loja; }
 
     public void inicializarEstoque(int quantidade, BigDecimal custoUnitario) {
         setQuantidadeEstoque(quantidade);
@@ -115,10 +137,8 @@ public class Produto {
             this.custoMedio = BigDecimal.ZERO.setScale(2);
             return;
         }
-        if (custoUnitario == null || custoUnitario.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Informe o custo unitário do estoque inicial.");
-        }
-        this.custoMedio = custoUnitario.setScale(2, RoundingMode.HALF_UP);
+        this.custoMedio = (custoUnitario == null ? BigDecimal.ZERO : custoUnitario)
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     // MÉTODOS DE NEGÓCIO (A Inteligência)
@@ -151,6 +171,14 @@ public class Produto {
         this.custoMedio = valorAtual.add(valorCompra)
                 .divide(BigDecimal.valueOf(novaQuantidade), 2, RoundingMode.HALF_UP);
         this.quantidadeEstoque = novaQuantidade;
+    }
+
+    public void reporSemCusto(int quantidade) {
+        if (quantidade <= 0) throw new IllegalArgumentException("A quantidade de reposição deve ser no mínimo 1.");
+        if (quantidade > Integer.MAX_VALUE - quantidadeEstoque) {
+            throw new IllegalArgumentException("Quantidade excede o limite de estoque.");
+        }
+        quantidadeEstoque += quantidade;
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.lojaagro.estoque_api.services;
 import com.lojaagro.estoque_api.dto.RelatorioWhatsappResponse;
 import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Transacao;
+import com.lojaagro.estoque_api.entities.Loja;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.junit.jupiter.api.Test;
@@ -32,20 +33,21 @@ class RelatorioWhatsappServiceTest {
         ProdutoRepository produtoRepository = mock(ProdutoRepository.class);
         LocalDateTime agora = LocalDateTime.of(2026, 9, 18, 12, 30);
         LocalDateTime inicio = LocalDateTime.of(2026, 9, 18, 0, 0);
+        Loja loja = mock(Loja.class); when(loja.getId()).thenReturn(1L); when(loja.isFinanceiroAtivo()).thenReturn(true);
 
         Transacao venda = transacao("VENDA", 2, "150.00", "80.00");
         Transacao compra = transacao("COMPRA", 3, "100.00", "0.00");
         Produto critico = mock(Produto.class);
         when(critico.getNome()).thenReturn("Racao Premium");
         when(critico.getQuantidadeEstoque()).thenReturn(4);
-        when(transacaoRepository.findByPeriodo(inicio, agora))
+        when(transacaoRepository.findByPeriodo(1L, inicio, agora))
                 .thenReturn(List.of(venda, compra));
-        when(produtoRepository.buscarEstoqueCritico()).thenReturn(List.of(critico));
+        when(produtoRepository.buscarEstoqueCritico(1L)).thenReturn(List.of(critico));
 
         RelatorioWhatsappService service = new RelatorioWhatsappService(
                 transacaoRepository, produtoRepository, RELOGIO, "55 (82) 99999-9999");
 
-        RelatorioWhatsappResponse resposta = service.gerar("diario");
+        RelatorioWhatsappResponse resposta = service.gerar("diario", loja);
 
         assertEquals("DIARIO", resposta.periodo());
         assertTrue(resposta.mensagem().contains("Vendas: 1 operação / 2 unidades"));
@@ -67,7 +69,7 @@ class RelatorioWhatsappServiceTest {
 
         IllegalArgumentException erro = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.gerar("anual"));
+                () -> service.gerar("anual", mock(Loja.class)));
 
         assertTrue(erro.getMessage().contains("DIARIO, SEMANAL ou MENSAL"));
     }

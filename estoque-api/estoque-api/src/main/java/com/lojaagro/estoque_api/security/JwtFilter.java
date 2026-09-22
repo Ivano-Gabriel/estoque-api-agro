@@ -38,7 +38,11 @@ public class JwtFilter extends OncePerRequestFilter {
 
             if (jwtUtil.validarToken(token)) {
                 String email = jwtUtil.extrairEmail(token);
-                usuarioRepository.findByEmail(email).filter(usuario -> jwtUtil.sessaoAtual(token, usuario)).ifPresent(usuario -> {
+                usuarioRepository.findByEmail(email)
+                        .filter(usuario -> jwtUtil.sessaoAtual(token, usuario))
+                        .filter(usuario -> usuario.getRole() == com.lojaagro.estoque_api.entities.UsuarioRole.SUPER_ADMIN
+                                || usuario.getLoja() != null && usuario.getLoja().isAtiva())
+                        .ifPresent(usuario -> {
                     UsernamePasswordAuthenticationToken auth =
                             new UsernamePasswordAuthenticationToken(
                                     email,

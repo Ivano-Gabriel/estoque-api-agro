@@ -1,166 +1,138 @@
 package com.lojaagro.estoque_api.services;
 
-import com.lojaagro.estoque_api.entities.Produto;
-import com.lojaagro.estoque_api.entities.Usuario;
-import com.lojaagro.estoque_api.repositories.ProdutoRepository;
-import com.lojaagro.estoque_api.repositories.CategoriaRepository;
 import com.lojaagro.estoque_api.dto.ProdutoRequest;
 import com.lojaagro.estoque_api.entities.Categoria;
+import com.lojaagro.estoque_api.entities.Loja;
+import com.lojaagro.estoque_api.entities.Produto;
+import com.lojaagro.estoque_api.entities.Usuario;
+import com.lojaagro.estoque_api.repositories.CategoriaRepository;
+import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-import java.math.BigDecimal;
 
 @Service
 public class ProdutoService {
+    private final ProdutoRepository produtos;
+    private final TransacaoService transacoes;
+    private final FluxoCaixaService caixa;
+    private final CategoriaRepository categorias;
 
-    private final ProdutoRepository repository;
-    private final TransacaoService transacaoService;
-    private final FluxoCaixaService fluxoCaixaService;
-    private final CategoriaRepository categoriaRepository;
-
-    // CONSTRUTOR ATUALIZADO
-    public ProdutoService(ProdutoRepository repository, 
-                          TransacaoService transacaoService, 
-                          FluxoCaixaService fluxoCaixaService,
-                          CategoriaRepository categoriaRepository) {
-        this.repository = repository;
-        this.transacaoService = transacaoService;
-        this.fluxoCaixaService = fluxoCaixaService;
-        this.categoriaRepository = categoriaRepository;
+    public ProdutoService(ProdutoRepository produtos, TransacaoService transacoes,
+                          FluxoCaixaService caixa, CategoriaRepository categorias) {
+        this.produtos = produtos; this.transacoes = transacoes; this.caixa = caixa; this.categorias = categorias;
     }
 
-    // === MÉTODOS EXISTENTES (JÁ TINHA) ===
-    public List<Produto> buscarTodos() {
-        return repository.findByAtivoTrue();
-    }
-
-    public Optional<Produto> buscarPorId(Long id) {
-        return repository.findByIdAndAtivoTrue(id);
+    public List<Produto> buscarTodos(Loja loja) { return produtos.findByLojaIdAndAtivoTrue(loja.getId()); }
+    public Optional<Produto> buscarPorId(Long id, Loja loja) {
+        return produtos.findByIdAndLojaIdAndAtivoTrue(id, loja.getId());
     }
 
     @Transactional
-    public Produto criar(ProdutoRequest request) {
-        fluxoCaixaService.bloquearOperacoes();
-        validarDuplicado(request.nome(), request.categoria().nome(), null);
-        Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
+    public Produto criar(ProdutoRequest request, Loja loja) {
+        caixa.bloquearOperacoes(loja.getId());
+        validarValoresFinanceiros(request, loja);
+        validarDuplicado(loja, request.nome(), request.categoria().nome(), null);
+        Categoria categoria = obterOuCriarCategoria(loja, request.categoria().nome());
         Produto produto = new Produto();
-        produto.atualizarDados(
-                request.nome(), request.tipo(), request.preco(),
-                request.dataValidade(), categoria);
+        produto.setLoja(loja);
+        produto.atualizarDados(request.nome(), request.tipo(), request.preco(), request.dataValidade(),
+                categoria, request.descricao(), request.imagemUrl());
         produto.inicializarEstoque(request.quantidadeEstoque(), request.custoUnitario());
-        return repository.save(produto);
+        return produtos.save(produto);
     }
 
     @Transactional
-    public Produto atualizar(Long id, ProdutoRequest request) {
-        fluxoCaixaService.bloquearOperacoes();
-        validarDuplicado(request.nome(), request.categoria().nome(), id);
-        Produto produto = repository.findByIdAndAtivoTrue(id)
+    public Produto atualizar(Long id, ProdutoRequest request, Loja loja) {
+        caixa.bloquearOperacoes(loja.getId());
+        validarValoresFinanceiros(request, loja);
+        validarDuplicado(loja, request.nome(), request.categoria().nome(), id);
+        Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(id, loja.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
-        Categoria categoria = obterOuCriarCategoria(request.categoria().nome());
-        produto.atualizarDados(
-                request.nome(), request.tipo(), request.preco(),
-                request.dataValidade() == null ? produto.getDataValidade() : request.dataValidade(), categoria);
-        return repository.save(produto);
-    }
-
-    private Categoria obterOuCriarCategoria(String nome) {
-        String nomeNormalizado = nome.trim();
-        return categoriaRepository.findByNomeIgnoreCase(nomeNormalizado)
-                .orElseGet(() -> categoriaRepository.save(new Categoria(nomeNormalizado)));
+        Categoria categoria = obterOuCriarCategoria(loja, request.categoria().nome());
+        produto.atualizarDados(request.nome(), request.tipo(), request.preco(),
+                request.dataValidade() == null ? produto.getDataValidade() : request.dataValidade(),
+                categoria, request.descricao(), request.imagemUrl());
+        return produtos.save(produto);
     }
 
     @Transactional
-    public void deletar(Long id) {
-        fluxoCaixaService.bloquearOperacoes();
-        Produto produto = repository.findByIdAndAtivoTrue(id)
-            .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
-            
-        // Forçamos o false na mão e salvamos! 
-        // Assim, até os produtos velhos obedecem à lixeira.
+    public void deletar(Long id, Loja loja) {
+        caixa.bloquearOperacoes(loja.getId());
+        Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(id, loja.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
         produto.setAtivo(false);
-        repository.save(produto);
-    }
-
-    // === NOVOS MÉTODOS (ADICIONA ESSES) ===
-    
-    @Transactional
-    public Produto venderComLucro(Long produtoId, int quantidade, BigDecimal precoVenda, Usuario usuario) {
-        fluxoCaixaService.bloquearOperacoes();
-        Produto produto = repository.findByIdAndAtivoTrue(produtoId)
-            .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
-        
-        if (produto.getQuantidadeEstoque() < quantidade) {
-            throw new IllegalArgumentException("Estoque insuficiente! Disponível: " + produto.getQuantidadeEstoque());
-        }
-        
-        BigDecimal custoUnitario = produto.getCustoMedio();
-        BigDecimal lucroTotal = precoVenda.subtract(custoUnitario)
-                .multiply(BigDecimal.valueOf(quantidade));
-
-        produto.venderProduto(quantidade);
-        repository.save(produto);
-        
-        BigDecimal valorTotal = precoVenda.multiply(BigDecimal.valueOf(quantidade));
-        
-        transacaoService.registrarTransacao(
-            produto, 
-            usuario, 
-            "VENDA", 
-            quantidade, 
-            precoVenda,
-            custoUnitario,
-            lucroTotal,
-            "Venda de " + quantidade + "x " + produto.getNome()
-        );
-        
-        fluxoCaixaService.adicionarEntrada(valorTotal);
-        
-        return produto;
+        produtos.save(produto);
     }
 
     @Transactional
-    public Produto comprarComCusto(Long produtoId, int quantidade, BigDecimal precoCompra, Usuario usuario) {
-        fluxoCaixaService.bloquearOperacoes();
-        Produto produto = repository.findByIdAndAtivoTrue(produtoId)
-            .orElseThrow(() -> new IllegalArgumentException("ERRO FATAL: Produto não encontrado."));
-        
-        produto.comprarProduto(quantidade, precoCompra);
-        repository.save(produto);
-        
-        BigDecimal valorTotal = precoCompra.multiply(BigDecimal.valueOf(quantidade));
-        
-        transacaoService.registrarTransacao(
-            produto,
-            usuario,
-            "COMPRA",
-            quantidade,
-            precoCompra,
-            precoCompra,
-            BigDecimal.ZERO,
-            "Reposição de " + quantidade + "x " + produto.getNome()
-        );
-        
-        fluxoCaixaService.adicionarSaida(valorTotal);
-        
-        return produto;
-    }
-    @Transactional
-    public void restaurar(Long id) {
-        fluxoCaixaService.bloquearOperacoes();
-        Produto produto = repository.findById(id)
+    public Produto venderComLucro(Long produtoId, int quantidade, BigDecimal precoInformado, Usuario usuario) {
+        Loja loja = usuario.getLoja();
+        Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(produtoId, loja.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
-        validarDuplicado(produto.getNome(), produto.getCategoria().getNome(), id);
-        produto.setAtivo(true);
-        repository.save(produto);
+        BigDecimal preco = loja.isFinanceiroAtivo() ? exigirPositivo(precoInformado, "Preço de venda") : BigDecimal.ZERO;
+        BigDecimal custo = loja.isFinanceiroAtivo() ? produto.getCustoMedio() : BigDecimal.ZERO;
+        BigDecimal lucro = loja.isFinanceiroAtivo()
+                ? preco.subtract(custo).multiply(BigDecimal.valueOf(quantidade)) : BigDecimal.ZERO;
+        produto.venderProduto(quantidade);
+        produtos.save(produto);
+        transacoes.registrarTransacao(produto, usuario, "VENDA", quantidade, preco, custo, lucro,
+                "Saída de " + quantidade + "x " + produto.getNome());
+        if (loja.isFinanceiroAtivo()) caixa.adicionarEntrada(loja.getId(), preco.multiply(BigDecimal.valueOf(quantidade)));
+        return produto;
     }
 
-    private void validarDuplicado(String nome, String categoria, Long ignorarId) {
-        if (repository.contarDuplicados(nome, categoria, ignorarId) > 0) {
-            throw new IllegalArgumentException("Já existe um produto com esse nome e categoria, inclusive na lixeira. Restaure ou edite o cadastro existente.");
+    @Transactional
+    public Produto comprarComCusto(Long produtoId, int quantidade, BigDecimal precoInformado, Usuario usuario) {
+        Loja loja = usuario.getLoja();
+        Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(produtoId, loja.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
+        BigDecimal preco = loja.isFinanceiroAtivo() ? exigirPositivo(precoInformado, "Custo da reposição") : BigDecimal.ZERO;
+        if (loja.isFinanceiroAtivo()) produto.comprarProduto(quantidade, preco);
+        else produto.reporSemCusto(quantidade);
+        produtos.save(produto);
+        transacoes.registrarTransacao(produto, usuario, "COMPRA", quantidade, preco, preco, BigDecimal.ZERO,
+                "Reposição de " + quantidade + "x " + produto.getNome());
+        if (loja.isFinanceiroAtivo()) caixa.adicionarSaida(loja.getId(), preco.multiply(BigDecimal.valueOf(quantidade)));
+        return produto;
+    }
+
+    @Transactional
+    public void restaurar(Long id, Loja loja) {
+        caixa.bloquearOperacoes(loja.getId());
+        Produto produto = produtos.findByIdAndLojaId(id, loja.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
+        validarDuplicado(loja, produto.getNome(), produto.getCategoria().getNome(), id);
+        produto.setAtivo(true);
+        produtos.save(produto);
+    }
+
+    public List<Produto> buscarLixeira(Loja loja) { return produtos.findByLojaIdAndAtivoFalse(loja.getId()); }
+
+    private Categoria obterOuCriarCategoria(Loja loja, String nome) {
+        String normalizado = nome.trim();
+        return categorias.findByLojaIdAndNomeIgnoreCase(loja.getId(), normalizado)
+                .orElseGet(() -> categorias.save(new Categoria(normalizado, loja)));
+    }
+
+    private void validarDuplicado(Loja loja, String nome, String categoria, Long ignorarId) {
+        if (produtos.contarDuplicados(loja.getId(), nome, categoria, ignorarId) > 0) {
+            throw new IllegalArgumentException("Já existe um produto com esse nome e categoria nesta loja, inclusive na lixeira.");
         }
+    }
+
+    private void validarValoresFinanceiros(ProdutoRequest request, Loja loja) {
+        if (!loja.isFinanceiroAtivo()) return;
+        exigirPositivo(request.preco(), "Preço de venda");
+        if (request.quantidadeEstoque() > 0) exigirPositivo(request.custoUnitario(), "Custo do estoque inicial");
+    }
+
+    private BigDecimal exigirPositivo(BigDecimal valor, String campo) {
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(campo + " deve ser maior que zero.");
+        }
+        return valor;
     }
 }

@@ -31,6 +31,7 @@ public class TransacaoService {
         
         Transacao transacao = new Transacao();
         transacao.setProduto(produto);
+        transacao.setLoja(usuario.getLoja());
         transacao.setUsuario(usuario);
         transacao.setTipo(tipo);
         transacao.setQuantidade(quantidade);
@@ -44,29 +45,29 @@ public class TransacaoService {
         return repository.save(transacao);
     }
 
-    public List<Transacao> listarTodas() {
-        return repository.findAll();
+    public List<Transacao> listarTodas(Long lojaId) {
+        return repository.findByLojaIdOrderByDataDesc(lojaId);
     }
 
-    public List<Transacao> listarUltimas10() {
-        return repository.findTop10ByOrderByDataDesc();
+    public List<Transacao> listarUltimas10(Long lojaId) {
+        return repository.findTop10ByLojaIdOrderByDataDesc(lojaId);
     }
 
-    public List<Transacao> listarPorProduto(Long produtoId) {
-        return repository.findByProdutoId(produtoId);
+    public List<Transacao> listarPorProduto(Long lojaId, Long produtoId) {
+        return repository.findByLojaIdAndProdutoId(lojaId, produtoId);
     }
 
-    public List<Transacao> listarPorTipo(String tipo) {
-        return repository.findByTipo(tipo);
+    public List<Transacao> listarPorTipo(Long lojaId, String tipo) {
+        return repository.findByLojaIdAndTipo(lojaId, tipo);
     }
     
-    public BigDecimal somarPorTipo(String tipo) {
-        BigDecimal soma = repository.sumValorTotalByTipo(tipo);
+    public BigDecimal somarPorTipo(Long lojaId, String tipo) {
+        BigDecimal soma = repository.sumValorTotalByTipo(lojaId, tipo);
         return soma != null ? soma : BigDecimal.ZERO;
     }
 
-    public BigDecimal somarLucroReal() {
-        BigDecimal soma = repository.sumLucroVendas();
+    public BigDecimal somarLucroReal(Long lojaId) {
+        BigDecimal soma = repository.sumLucroVendas(lojaId);
         return soma != null ? soma : BigDecimal.ZERO;
     }
 }

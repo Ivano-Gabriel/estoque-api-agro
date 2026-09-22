@@ -10,39 +10,34 @@ import java.math.BigDecimal;
 public class FluxoCaixaService {
 
     private final FluxoCaixaRepository repository;
-    private static final Long FLUXO_ID = 1L;
 
     public FluxoCaixaService(FluxoCaixaRepository repository) {
         this.repository = repository;
     }
 
     @Transactional
-    public FluxoCaixa adicionarEntrada(BigDecimal valor) {
-        FluxoCaixa fluxo = getOrCreateFluxo();
+    public FluxoCaixa adicionarEntrada(Long lojaId, BigDecimal valor) {
+        FluxoCaixa fluxo = getFluxoAtual(lojaId);
         fluxo.adicionarEntrada(valor);
         return repository.save(fluxo);
     }
 
     @Transactional
-    public FluxoCaixa adicionarSaida(BigDecimal valor) {
-        FluxoCaixa fluxo = getOrCreateFluxo();
+    public FluxoCaixa adicionarSaida(Long lojaId, BigDecimal valor) {
+        FluxoCaixa fluxo = getFluxoAtual(lojaId);
         fluxo.adicionarSaida(valor);
         return repository.save(fluxo);
     }
 
-    public FluxoCaixa getFluxoAtual() {
-        return getOrCreateFluxo();
-    }
-
-    private FluxoCaixa getOrCreateFluxo() {
-        return repository.findById(FLUXO_ID)
+    public FluxoCaixa getFluxoAtual(Long lojaId) {
+        return repository.findByLojaId(lojaId)
             .orElseThrow(() -> new IllegalStateException("Caixa não inicializado."));
     }
 
     // Uma trava no banco, compartilhada entre instâncias, serializa as operações da loja.
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public void bloquearOperacoes() {
-        repository.bloquearCaixa()
+    public void bloquearOperacoes(Long lojaId) {
+        repository.bloquearCaixa(lojaId)
                 .orElseThrow(() -> new IllegalStateException("Caixa não inicializado."));
     }
 }

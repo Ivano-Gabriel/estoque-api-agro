@@ -5,6 +5,7 @@ import com.lojaagro.estoque_api.dto.ImportacaoPlanilhaErro;
 import com.lojaagro.estoque_api.dto.ImportacaoPlanilhaResultado;
 import com.lojaagro.estoque_api.dto.ProdutoRequest;
 import com.lojaagro.estoque_api.entities.Produto;
+import com.lojaagro.estoque_api.entities.Loja;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -62,15 +63,15 @@ public class ProdutoImportacaoService {
     }
 
     @Transactional
-    public ImportacaoPlanilhaResultado importar(MultipartFile arquivo) {
+    public ImportacaoPlanilhaResultado importar(MultipartFile arquivo, Loja loja) {
         validarArquivo(arquivo);
-        LeituraPlanilha leitura = lerPlanilha(arquivo);
+        LeituraPlanilha leitura = lerPlanilha(arquivo, loja);
 
         if (!leitura.erros().isEmpty()) {
             return new ImportacaoPlanilhaResultado(0, leitura.totalLinhas(), leitura.erros());
         }
 
-        leitura.produtos().forEach(produtoService::criar);
+        leitura.produtos().forEach(produto -> produtoService.criar(produto, loja));
         return new ImportacaoPlanilhaResultado(
                 leitura.produtos().size(), leitura.totalLinhas(), List.of());
     }
@@ -139,7 +140,7 @@ public class ProdutoImportacaoService {
         }
     }
 
-    private LeituraPlanilha lerPlanilha(MultipartFile arquivo) {
+    private LeituraPlanilha lerPlanilha(MultipartFile arquivo, Loja loja) {
         try (Workbook workbook = WorkbookFactory.create(arquivo.getInputStream())) {
             if (workbook.getNumberOfSheets() == 0) {
                 return erroGeral("A planilha não possui abas.");
@@ -153,14 +154,14 @@ public class ProdutoImportacaoService {
 
             Row cabecalho = sheet.getRow(0);
             List<ImportacaoPlanilhaErro> erros = new ArrayList<>();
-            MapaColunas colunas = mapearColunas(cabecalho, erros);
+            MapaColunas colunas = mapearColunas(cabecalho, erros, loja.isFinanceiroAtivo());
             if (!erros.isEmpty()) {
                 return new LeituraPlanilha(List.of(), 0, erros);
             }
 
             List<ProdutoRequest> produtos = new ArrayList<>();
             Set<String> chaves = new HashSet<>();
-            produtoRepository.findAll().stream()
+            produtoRepository.findByLojaId(loja.getId()).stream()
                     .map(this::chaveProduto)
                     .forEach(chaves::add);
 
@@ -180,14 +181,14 @@ public class ProdutoImportacaoService {
                 int errosAntes = erros.size();
                 String nome = texto(row, colunas.nome(), "nome", numeroLinha, erros, true);
                 String tipo = texto(row, colunas.tipo(), "tipo", numeroLinha, erros, false);
-                BigDecimal preco = decimal(row, colunas.preco(), "preco_venda", numeroLinha, erros, true);
+                BigDecimal preco = decimal(row, colunas.preco(), "preco_venda", numeroLinha, erros, loja.isFinanceiroAtivo());
                 BigDecimal custo = decimal(row, colunas.custo(), "custo_unitario", numeroLinha, erros, false);
                 Integer quantidade = inteiro(row, colunas.quantidade(), "quantidade", numeroLinha, erros);
                 String categoria = texto(row, colunas.categoria(), "categoria", numeroLinha, erros, true);
                 LocalDate validade = data(row, colunas.validade(), numeroLinha, erros);
 
                 validarTamanhos(nome, tipo, categoria, numeroLinha, erros);
-                if (preco != null && preco.compareTo(BigDecimal.ZERO) <= 0) {
+                if (loja.isFinanceiroAtivo() && preco != null && preco.compareTo(BigDecimal.ZERO) <= 0) {
                     erros.add(new ImportacaoPlanilhaErro(numeroLinha, "preco_venda", "Deve ser maior que zero."));
                 }
                 if (custo != null && custo.compareTo(BigDecimal.ZERO) < 0) {
@@ -196,7 +197,7 @@ public class ProdutoImportacaoService {
                 if (quantidade != null && quantidade < 0) {
                     erros.add(new ImportacaoPlanilhaErro(numeroLinha, "quantidade", "Não pode ser negativa."));
                 }
-                if (quantidade != null && quantidade > 0
+                if (loja.isFinanceiroAtivo() && quantidade != null && quantidade > 0
                         && (custo == null || custo.compareTo(BigDecimal.ZERO) <= 0)) {
                     erros.add(new ImportacaoPlanilhaErro(
                             numeroLinha, "custo_unitario",
@@ -215,11 +216,13 @@ public class ProdutoImportacaoService {
                     produtos.add(new ProdutoRequest(
                             nome,
                             tipo == null || tipo.isBlank() ? "UNIDADE" : tipo,
-                            preco,
+                            preco == null ? BigDecimal.ZERO : preco,
                             custo == null ? BigDecimal.ZERO : custo,
                             validade,
                             quantidade,
-                            new CategoriaRequest(categoria)));
+                            new CategoriaRequest(categoria),
+                            null,
+                            null));
                 }
             }
 
@@ -247,7 +250,7 @@ public class ProdutoImportacaoService {
         }
     }
 
-    private MapaColunas mapearColunas(Row row, List<ImportacaoPlanilhaErro> erros) {
+    private MapaColunas mapearColunas(Row row, List<ImportacaoPlanilhaErro> erros, boolean financeiroAtivo) {
         if (row == null || row.getLastCellNum() > 30) {
             erros.add(new ImportacaoPlanilhaErro(1, "cabecalho", "Cabeçalho ausente ou inválido."));
             return MapaColunas.vazio();
@@ -268,8 +271,10 @@ public class ProdutoImportacaoService {
         int validade = localizar(indices, "data_validade", "validade");
 
         exigirColuna(nome, "nome", erros);
-        exigirColuna(preco, "preco_venda", erros);
-        exigirColuna(custo, "custo_unitario", erros);
+        if (financeiroAtivo) {
+            exigirColuna(preco, "preco_venda", erros);
+            exigirColuna(custo, "custo_unitario", erros);
+        }
         exigirColuna(quantidade, "quantidade", erros);
         exigirColuna(categoria, "categoria", erros);
         return new MapaColunas(nome, tipo, preco, custo, quantidade, categoria, validade);

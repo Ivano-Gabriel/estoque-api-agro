@@ -27,10 +27,12 @@ public class MovimentacaoService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Atualize o aplicativo: Idempotency-Key deve ser um UUID válido.");
         }
-        caixa.bloquearOperacoes();
+        Long lojaId = usuario.getLoja().getId();
+        caixa.bloquearOperacoes(lojaId);
+        java.math.BigDecimal preco = dados.preco() == null ? java.math.BigDecimal.ZERO : dados.preco();
         String assinatura = usuario.getId() + "|" + venda + "|" + produtoId + "|" + dados.quantidade()
-                + "|" + dados.preco().stripTrailingZeros().toPlainString();
-        var anterior = operacoes.findById(id);
+                + "|" + preco.stripTrailingZeros().toPlainString();
+        var anterior = operacoes.findByIdAndLojaId(id, lojaId);
         if (anterior.isPresent()) {
             if (!anterior.get().getAssinatura().equals(assinatura)) {
                 throw new IllegalArgumentException("Chave de operação já utilizada com outros dados.");
@@ -39,6 +41,6 @@ public class MovimentacaoService {
         }
         if (venda) produtos.venderComLucro(produtoId, dados.quantidade(), dados.preco(), usuario);
         else produtos.comprarComCusto(produtoId, dados.quantidade(), dados.preco(), usuario);
-        operacoes.save(new OperacaoEstoque(id, assinatura));
+        operacoes.save(new OperacaoEstoque(id, assinatura, usuario.getLoja()));
     }
 }
