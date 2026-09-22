@@ -12,23 +12,25 @@ import java.math.BigDecimal;
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
-    List<Produto> findByAtivoTrue();
-    java.util.Optional<Produto> findByIdAndAtivoTrue(Long id);
+    List<Produto> findByLojaIdAndAtivoTrue(Long lojaId);
+    List<Produto> findByLojaId(Long lojaId);
+    java.util.Optional<Produto> findByIdAndLojaIdAndAtivoTrue(Long id, Long lojaId);
+    java.util.Optional<Produto> findByIdAndLojaId(Long id, Long lojaId);
 
     @Query("SELECT COUNT(p) FROM Produto p WHERE LOWER(TRIM(p.nome)) = LOWER(TRIM(:nome)) "
             + "AND LOWER(TRIM(p.categoria.nome)) = LOWER(TRIM(:categoria)) "
+            + "AND p.loja.id = :lojaId "
             + "AND (:ignorarId IS NULL OR p.id <> :ignorarId)")
-    long contarDuplicados(String nome, String categoria, Long ignorarId);
+    long contarDuplicados(Long lojaId, String nome, String categoria, Long ignorarId);
 
     // Busca apenas os inativos (Lixeira) ignorando o filtro padrão
-    @Query(value = "SELECT * FROM produto WHERE ativo = false", nativeQuery = true)
-    List<Produto> buscarLixeira();
+    List<Produto> findByLojaIdAndAtivoFalse(Long lojaId);
 
     // Método para restaurar o produto
     @Modifying
     @Transactional
-    @Query(value = "UPDATE produto SET ativo = true WHERE id = ?", nativeQuery = true)
-    void restaurarProduto(Long id);
+    @Query("UPDATE Produto p SET p.ativo = true WHERE p.id = :id AND p.loja.id = :lojaId")
+    void restaurarProduto(Long id, Long lojaId);
 
     /*
      * Ferramentas destrutivas preservadas para testes.
@@ -46,18 +48,18 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     void apagarPermanente(Long id);
 
     // 1. Conta quantos produtos estão ativos
-    long countByAtivoTrue();
+    long countByLojaIdAndAtivoTrue(Long lojaId);
 
     // 2. Conta quantos produtos estão com 5 ou menos no estoque
-    @Query("SELECT COUNT(p) FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= 5")
-    long contarEstoqueCritico();
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true AND p.quantidadeEstoque <= 5")
+    long contarEstoqueCritico(Long lojaId);
 
-    @Query("SELECT p FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= 5 "
+    @Query("SELECT p FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true AND p.quantidadeEstoque <= 5 "
             + "ORDER BY p.quantidadeEstoque ASC, p.nome ASC")
-    List<Produto> buscarEstoqueCritico();
+    List<Produto> buscarEstoqueCritico(Long lojaId);
 
     // 3. Calcula o patrimônio (Preço x Quantidade de todos os ativos)
     // O COALESCE garante que, se a loja estiver vazia, ele retorne 0 em vez de dar erro null
-    @Query("SELECT COALESCE(SUM(p.quantidadeEstoque * p.preco), 0) FROM Produto p WHERE p.ativo = true")
-    BigDecimal calcularPatrimonioTotal();
+    @Query("SELECT COALESCE(SUM(p.quantidadeEstoque * p.preco), 0) FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true")
+    BigDecimal calcularPatrimonioTotal(Long lojaId);
 }

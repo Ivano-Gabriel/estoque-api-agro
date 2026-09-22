@@ -6,7 +6,6 @@ import com.lojaagro.estoque_api.dto.MovimentacaoRequest;
 import com.lojaagro.estoque_api.dto.ProdutoRequest;
 import com.lojaagro.estoque_api.services.ProdutoService;
 import com.lojaagro.estoque_api.services.UsuarioService;
-import com.lojaagro.estoque_api.repositories.ProdutoRepository; // <-- Importante!
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -27,50 +26,47 @@ public class ProdutoController {
 
     private final ProdutoService service;
     private final UsuarioService usuarioService;
-    private final ProdutoRepository produtoRepository; // <-- Adicionado aqui!
     private final ProdutoImportacaoService importacaoService;
     private final com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService;
 
     public ProdutoController(ProdutoService service,
                              UsuarioService usuarioService,
-                             ProdutoRepository produtoRepository,
                              ProdutoImportacaoService importacaoService,
                              com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService) {
         this.service = service;
         this.usuarioService = usuarioService;
-        this.produtoRepository = produtoRepository; // <-- Injetado aqui!
         this.importacaoService = importacaoService;
         this.movimentacaoService = movimentacaoService;
     }
 
     @GetMapping
-    public ResponseEntity<List<Produto>> buscarTodos() {
-        return ResponseEntity.ok(service.buscarTodos());
+    public ResponseEntity<List<Produto>> buscarTodos(Authentication auth) {
+        return ResponseEntity.ok(service.buscarTodos(usuarioService.lojaAtual(auth)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Produto> buscarPorId(@PathVariable Long id) {
-        return service.buscarPorId(id)
+    public ResponseEntity<Produto> buscarPorId(@PathVariable Long id, Authentication auth) {
+        return service.buscarPorId(id, usuarioService.lojaAtual(auth))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<Produto> criar(@Valid @RequestBody ProdutoRequest produto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(produto));
+    public ResponseEntity<Produto> criar(@Valid @RequestBody ProdutoRequest produto, Authentication auth) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(produto, usuarioService.lojaAtual(auth)));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Produto> atualizar(@PathVariable Long id,
-                                             @Valid @RequestBody ProdutoRequest produto) {
-        return ResponseEntity.ok(service.atualizar(id, produto));
+                                             @Valid @RequestBody ProdutoRequest produto, Authentication auth) {
+        return ResponseEntity.ok(service.atualizar(id, produto, usuarioService.lojaAtual(auth)));
     }
 
     @PostMapping(value = "/importacao", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ImportacaoPlanilhaResultado> importarPlanilha(
-            @RequestPart("arquivo") MultipartFile arquivo) {
-        ImportacaoPlanilhaResultado resultado = importacaoService.importar(arquivo);
+            @RequestPart("arquivo") MultipartFile arquivo, Authentication auth) {
+        ImportacaoPlanilhaResultado resultado = importacaoService.importar(arquivo, usuarioService.lojaAtual(auth));
         if (!resultado.erros().isEmpty()) {
             return ResponseEntity.unprocessableEntity().body(resultado);
         }
@@ -89,20 +85,20 @@ public class ProdutoController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable Long id) {
-        service.deletar(id);
+    public ResponseEntity<Void> deletar(@PathVariable Long id, Authentication auth) {
+        service.deletar(id, usuarioService.lojaAtual(auth));
         return ResponseEntity.noContent().build();
     }
 
     // NOSSAS ROTAS DA LIXEIRA
     @GetMapping("/lixeira")
-    public ResponseEntity<List<Produto>> listarLixeira() {
-        return ResponseEntity.ok(produtoRepository.buscarLixeira());
+    public ResponseEntity<List<Produto>> listarLixeira(Authentication auth) {
+        return ResponseEntity.ok(service.buscarLixeira(usuarioService.lojaAtual(auth)));
     }
 
     @PutMapping("/{id}/restaurar")
-    public ResponseEntity<Void> restaurarProduto(@PathVariable Long id) {
-        service.restaurar(id);
+    public ResponseEntity<Void> restaurarProduto(@PathVariable Long id, Authentication auth) {
+        service.restaurar(id, usuarioService.lojaAtual(auth));
         return ResponseEntity.ok().build();
     }
 

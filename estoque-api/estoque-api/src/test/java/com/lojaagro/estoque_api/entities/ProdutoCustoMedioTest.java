@@ -13,7 +13,7 @@ class ProdutoCustoMedioTest {
         Produto produto = new Produto();
         produto.atualizarDados(
                 "Produto teste", "UNIDADE", new BigDecimal("30.00"),
-                null, new Categoria("Teste"));
+                null, new Categoria("Teste"), null, null);
         produto.inicializarEstoque(10, new BigDecimal("10.00"));
 
         produto.comprarProduto(10, new BigDecimal("20.00"));
@@ -27,7 +27,7 @@ class ProdutoCustoMedioTest {
         Produto produto = new Produto();
         produto.atualizarDados(
                 "Produto teste", "UNIDADE", new BigDecimal("30.00"),
-                null, new Categoria("Teste"));
+                null, new Categoria("Teste"), null, null);
         produto.inicializarEstoque(5, new BigDecimal("12.50"));
 
         produto.venderProduto(2);

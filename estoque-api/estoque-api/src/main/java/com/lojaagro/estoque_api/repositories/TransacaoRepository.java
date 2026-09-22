@@ -12,20 +12,21 @@ import java.math.BigDecimal;
 @Repository
 public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
     
-    List<Transacao> findByProdutoId(Long produtoId);
+    List<Transacao> findByLojaIdAndProdutoId(Long lojaId, Long produtoId);
     
-    List<Transacao> findByTipo(String tipo);
+    List<Transacao> findByLojaIdAndTipo(Long lojaId, String tipo);
     
-    @Query("SELECT t FROM Transacao t WHERE t.data BETWEEN :inicio AND :fim ORDER BY t.data DESC")
-    List<Transacao> findByPeriodo(@Param("inicio") LocalDateTime inicio, 
+    @Query("SELECT t FROM Transacao t WHERE t.loja.id = :lojaId AND t.data BETWEEN :inicio AND :fim ORDER BY t.data DESC")
+    List<Transacao> findByPeriodo(@Param("lojaId") Long lojaId, @Param("inicio") LocalDateTime inicio,
                                   @Param("fim") LocalDateTime fim);
     
-    @Query("SELECT SUM(t.valorTotal) FROM Transacao t WHERE t.tipo = :tipo")
-    BigDecimal sumValorTotalByTipo(@Param("tipo") String tipo);
+    @Query("SELECT SUM(t.valorTotal) FROM Transacao t WHERE t.loja.id = :lojaId AND t.tipo = :tipo")
+    BigDecimal sumValorTotalByTipo(@Param("lojaId") Long lojaId, @Param("tipo") String tipo);
 
-    @Query("SELECT SUM(t.lucro) FROM Transacao t WHERE t.tipo = 'VENDA'")
-    BigDecimal sumLucroVendas();
+    @Query("SELECT SUM(t.lucro) FROM Transacao t WHERE t.loja.id = :lojaId AND t.tipo = 'VENDA'")
+    BigDecimal sumLucroVendas(@Param("lojaId") Long lojaId);
     
-    @Query("SELECT t FROM Transacao t ORDER BY t.data DESC")
-    List<Transacao> findTop10ByOrderByDataDesc();
+    List<Transacao> findTop10ByLojaIdOrderByDataDesc(Long lojaId);
+
+    List<Transacao> findByLojaIdOrderByDataDesc(Long lojaId);
 }

@@ -11,6 +11,11 @@ public class FluxoCaixa {
     @Id
     private Long id = 1L;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "loja_id", unique = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Loja loja;
+
     @Version
     @Column(nullable = false, columnDefinition = "bigint default 0")
     private long versao;
@@ -28,6 +33,12 @@ public class FluxoCaixa {
     
     public FluxoCaixa() {
         this.ultimaAtualizacao = LocalDateTime.now();
+    }
+
+    public FluxoCaixa(Long id, Loja loja) {
+        this();
+        this.id = id;
+        this.loja = loja;
     }
     
     // Métodos de negócio
@@ -55,6 +66,7 @@ public class FluxoCaixa {
     public BigDecimal getTotalSaidas() { return totalSaidas; }
     public BigDecimal getSaldoLiquido() { return saldoLiquido; }
     public LocalDateTime getUltimaAtualizacao() { return ultimaAtualizacao; }
+    public Loja getLoja() { return loja; }
     
     // Setters
     public void setId(Long id) { this.id = id; }
@@ -70,6 +82,7 @@ public class FluxoCaixa {
     public void setUltimaAtualizacao(LocalDateTime ultimaAtualizacao) { 
         this.ultimaAtualizacao = ultimaAtualizacao; 
     }
+    public void setLoja(Loja loja) { this.loja = loja; }
 
     private void recalcularSaldo() {
         this.saldoLiquido = this.totalEntradas.subtract(this.totalSaidas)

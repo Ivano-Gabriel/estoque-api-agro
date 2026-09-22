@@ -5,5 +5,6 @@ import com.lojaagro.estoque_api.entities.UsuarioRole;
 public record LoginResponse(
         String token,
         String email,
-        UsuarioRole role) {
+        UsuarioRole role,
+        LojaResumo loja) {
 }

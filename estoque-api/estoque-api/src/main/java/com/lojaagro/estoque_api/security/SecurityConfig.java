@@ -48,6 +48,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ping").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers("/plataforma/**").hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.GET, "/relatorios/whatsapp")
                     .hasAnyRole("ADMIN", "FUNCIONARIA")
                 .requestMatchers(

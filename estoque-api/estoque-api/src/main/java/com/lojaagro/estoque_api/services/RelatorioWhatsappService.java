@@ -3,6 +3,7 @@ package com.lojaagro.estoque_api.services;
 import com.lojaagro.estoque_api.dto.RelatorioWhatsappResponse;
 import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Transacao;
+import com.lojaagro.estoque_api.entities.Loja;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,16 +44,16 @@ public class RelatorioWhatsappService {
         this.numeroWhatsapp = numeroWhatsapp;
     }
 
-    public RelatorioWhatsappResponse gerar(String periodoInformado) {
+    public RelatorioWhatsappResponse gerar(String periodoInformado, Loja loja) {
         Periodo periodo = Periodo.from(periodoInformado);
-        String numero = normalizarNumero(numeroWhatsapp);
+        String numero = normalizarNumero(loja.getWhatsapp() == null ? numeroWhatsapp : loja.getWhatsapp());
         LocalDateTime agora = LocalDateTime.now(businessClock);
         LocalDateTime inicio = periodo.inicio(agora);
 
-        List<Transacao> transacoes = transacaoRepository.findByPeriodo(inicio, agora);
+        List<Transacao> transacoes = transacaoRepository.findByPeriodo(loja.getId(), inicio, agora);
         List<Transacao> vendas = filtrar(transacoes, "VENDA");
         List<Transacao> compras = filtrar(transacoes, "COMPRA");
-        List<Produto> produtosCriticos = produtoRepository.buscarEstoqueCritico();
+        List<Produto> produtosCriticos = produtoRepository.buscarEstoqueCritico(loja.getId());
 
         int unidadesVendidas = somarQuantidades(vendas);
         int unidadesRepostas = somarQuantidades(compras);
@@ -67,7 +68,7 @@ public class RelatorioWhatsappService {
         String mensagem = montarMensagem(
                 periodo, inicio, agora, vendas.size(), compras.size(),
                 unidadesVendidas, unidadesRepostas, totalVendido,
-                totalReposto, lucroReal, saldo, produtosCriticos);
+                totalReposto, lucroReal, saldo, produtosCriticos, loja.isFinanceiroAtivo());
         String url = "https://wa.me/" + numero + "?text="
                 + URLEncoder.encode(mensagem, StandardCharsets.UTF_8);
 
@@ -107,7 +108,8 @@ public class RelatorioWhatsappService {
             BigDecimal totalReposto,
             BigDecimal lucroReal,
             BigDecimal saldo,
-            List<Produto> produtosCriticos) {
+            List<Produto> produtosCriticos,
+            boolean financeiroAtivo) {
 
         StringBuilder mensagem = new StringBuilder();
         mensagem.append("*RELATÓRIO DE ESTOQUE*\n")
@@ -123,12 +125,15 @@ public class RelatorioWhatsappService {
                 .append("Reposições: ").append(quantidadeCompras)
                 .append(' ').append(rotuloOperacoes(quantidadeCompras))
                 .append(" / ").append(unidadesRepostas).append(' ')
-                .append(rotuloUnidades(unidadesRepostas)).append("\n")
-                .append("Total vendido: ").append(moeda(totalVendido)).append("\n")
-                .append("Total reposto: ").append(moeda(totalReposto)).append("\n")
-                .append("Lucro bruto das vendas: ").append(moeda(lucroReal)).append("\n")
-                .append("Saldo do período: ").append(moeda(saldo)).append("\n\n")
-                .append("*Estoque crítico agora: ")
+                .append(rotuloUnidades(unidadesRepostas)).append("\n");
+
+        if (financeiroAtivo) {
+            mensagem.append("Total vendido: ").append(moeda(totalVendido)).append("\n")
+                    .append("Total reposto: ").append(moeda(totalReposto)).append("\n")
+                    .append("Lucro bruto das vendas: ").append(moeda(lucroReal)).append("\n")
+                    .append("Saldo do período: ").append(moeda(saldo)).append("\n");
+        }
+        mensagem.append("\n*Estoque crítico agora: ")
                 .append(produtosCriticos.size()).append("*\n");
 
         if (produtosCriticos.isEmpty()) {

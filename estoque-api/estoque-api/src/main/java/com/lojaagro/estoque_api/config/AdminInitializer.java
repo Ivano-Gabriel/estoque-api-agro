@@ -3,6 +3,7 @@ package com.lojaagro.estoque_api.config;
 import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.entities.UsuarioRole;
 import com.lojaagro.estoque_api.repositories.UsuarioRepository;
+import com.lojaagro.estoque_api.repositories.LojaRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,15 +18,18 @@ public class AdminInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final String adminEmail;
     private final String adminPassword;
+    private final LojaRepository lojas;
 
     public AdminInitializer(UsuarioRepository repository,
                             PasswordEncoder passwordEncoder,
                             @Value("${app.admin.email:}") String adminEmail,
-                            @Value("${app.admin.password:}") String adminPassword) {
+                            @Value("${app.admin.password:}") String adminPassword,
+                            LojaRepository lojas) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
+        this.lojas = lojas;
     }
 
     @Override
@@ -56,6 +60,8 @@ public class AdminInitializer implements CommandLineRunner {
         admin.setEmail(emailNormalizado);
         admin.setSenha(passwordEncoder.encode(adminPassword));
         admin.setRole(UsuarioRole.ADMIN);
+        admin.setLoja(lojas.findAll().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("Loja piloto não inicializada.")));
         repository.save(admin);
     }
 }

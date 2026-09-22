@@ -11,6 +11,11 @@ public class Transacao {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "loja_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Loja loja;
     
     @ManyToOne
     @JoinColumn(name = "produto_id")
@@ -78,6 +83,7 @@ public class Transacao {
     public BigDecimal getLucro() { return lucro; }
     public LocalDateTime getData() { return data; }
     public String getDescricao() { return descricao; }
+    public Loja getLoja() { return loja; }
     
     // Setters
     public void setId(Long id) { this.id = id; }
@@ -99,6 +105,7 @@ public class Transacao {
     }
     public void setData(LocalDateTime data) { this.data = data; }
     public void setDescricao(String descricao) { this.descricao = descricao; }
+    public void setLoja(Loja loja) { this.loja = loja; }
 
     private BigDecimal normalizar(BigDecimal valor) {
         return (valor == null ? BigDecimal.ZERO : valor).setScale(2, RoundingMode.HALF_UP);

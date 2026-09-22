@@ -14,6 +14,11 @@ public class Usuario {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "loja_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Loja loja;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String senha;
@@ -47,8 +52,10 @@ public class Usuario {
     public String getEmail() { return email; }
     public String getSenha() { return senha; }
     public UsuarioRole getRole() { return role; }
+    public Loja getLoja() { return loja; }
     public void setEmail(String email) { this.email = email; }
     public void setRole(UsuarioRole role) { this.role = role; }
+    public void setLoja(Loja loja) { this.loja = loja; }
     public boolean isAtivo() { return ativo; }
     @com.fasterxml.jackson.annotation.JsonIgnore
     public int getVersaoSessao() { return versaoSessao; }
