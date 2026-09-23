@@ -4,6 +4,7 @@ import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.dto.MovimentacaoRequest;
 import com.lojaagro.estoque_api.dto.ProdutoRequest;
+import com.lojaagro.estoque_api.dto.CadastroProdutosLoteRequest;
 import com.lojaagro.estoque_api.services.ProdutoService;
 import com.lojaagro.estoque_api.services.UsuarioService;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import com.lojaagro.estoque_api.dto.ImportacaoPlanilhaResultado;
 import com.lojaagro.estoque_api.services.ProdutoImportacaoService;
+import com.lojaagro.estoque_api.services.ProdutoCadastroLoteService;
 
 @RestController
 @RequestMapping("/produtos")
@@ -27,15 +29,18 @@ public class ProdutoController {
     private final ProdutoService service;
     private final UsuarioService usuarioService;
     private final ProdutoImportacaoService importacaoService;
+    private final ProdutoCadastroLoteService cadastroLoteService;
     private final com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService;
 
     public ProdutoController(ProdutoService service,
                              UsuarioService usuarioService,
                              ProdutoImportacaoService importacaoService,
+                             ProdutoCadastroLoteService cadastroLoteService,
                              com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService) {
         this.service = service;
         this.usuarioService = usuarioService;
         this.importacaoService = importacaoService;
+        this.cadastroLoteService = cadastroLoteService;
         this.movimentacaoService = movimentacaoService;
     }
 
@@ -54,6 +59,18 @@ public class ProdutoController {
     @PostMapping
     public ResponseEntity<Produto> criar(@Valid @RequestBody ProdutoRequest produto, Authentication auth) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(produto, usuarioService.lojaAtual(auth)));
+    }
+
+    @PostMapping("/cadastro-em-massa")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ImportacaoPlanilhaResultado> cadastrarEmMassa(
+            @RequestBody CadastroProdutosLoteRequest lote, Authentication auth) {
+        ImportacaoPlanilhaResultado resultado = cadastroLoteService.cadastrar(
+                lote, usuarioService.lojaAtual(auth));
+        if (!resultado.erros().isEmpty()) {
+            return ResponseEntity.unprocessableEntity().body(resultado);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
     }
 
     @PutMapping("/{id}")

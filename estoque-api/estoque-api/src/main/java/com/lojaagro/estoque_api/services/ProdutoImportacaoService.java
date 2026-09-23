@@ -81,8 +81,9 @@ public class ProdutoImportacaoService {
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Sheet produtos = workbook.createSheet("PRODUTOS");
             String[] cabecalhos = {
-                    "nome", "tipo", "preco_venda", "custo_unitario",
-                    "quantidade", "categoria", "data_validade"
+                    "Nome do produto", "Unidade de medida",
+                    "Preço de venda (quanto cobrar)", "Preço de compra (quanto pagou)",
+                    "Quantidade inicial", "Categoria", "Data de validade"
             };
 
             Font fonteCabecalho = workbook.createFont();
@@ -122,8 +123,8 @@ public class ProdutoImportacaoService {
                     "INSTRUÇÕES PARA IMPORTAÇÃO",
                     "1. Preencha somente a aba PRODUTOS.",
                     "2. Não altere os nomes das colunas.",
-                    "3. Preço e custo devem ser valores positivos.",
-                    "4. Se a quantidade for maior que zero, o custo unitário é obrigatório.",
+                    "3. Preço de venda é quanto o cliente pagará por uma unidade.",
+                    "4. Preço de compra é quanto você pagou por uma unidade e é obrigatório quando existe estoque inicial.",
                     "5. Data de validade é opcional e deve usar DD/MM/AAAA.",
                     "6. O limite é de 1.000 produtos por importação.",
                     "7. Se alguma linha estiver errada, nenhum produto será cadastrado."
@@ -262,13 +263,15 @@ public class ProdutoImportacaoService {
             if (!valor.isBlank()) indices.putIfAbsent(valor, coluna);
         }
 
-        int nome = localizar(indices, "nome", "produto");
-        int tipo = localizar(indices, "tipo", "unidade");
-        int preco = localizar(indices, "preco_venda", "preco", "valor_venda");
-        int custo = localizar(indices, "custo_unitario", "custo", "preco_custo");
-        int quantidade = localizar(indices, "quantidade", "estoque", "quantidade_estoque");
+        int nome = localizar(indices, "nome", "produto", "nome_do_produto");
+        int tipo = localizar(indices, "tipo", "unidade", "unidade_de_medida");
+        int preco = localizar(indices, "preco_venda", "preco", "valor_venda",
+                "preco_de_venda", "preco_de_venda_quanto_cobrar");
+        int custo = localizar(indices, "custo_unitario", "custo", "preco_custo",
+                "preco_de_compra", "preco_de_compra_quanto_pagou");
+        int quantidade = localizar(indices, "quantidade", "estoque", "quantidade_estoque", "quantidade_inicial");
         int categoria = localizar(indices, "categoria", "setor");
-        int validade = localizar(indices, "data_validade", "validade");
+        int validade = localizar(indices, "data_validade", "validade", "data_de_validade");
 
         exigirColuna(nome, "nome", erros);
         if (financeiroAtivo) {

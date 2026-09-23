@@ -35,6 +35,7 @@ class PilotIntegrityTest {
     @Autowired FluxoCaixaRepository caixas;
     @Autowired RelatorioWhatsappService relatorios;
     @Autowired ProdutoImportacaoService importacao;
+    @Autowired ProdutoCadastroLoteService cadastroLote;
     @Autowired JwtUtil jwt;
     @Autowired PasswordEncoder encoder;
     @Autowired LojaRepository lojas;
@@ -119,6 +120,15 @@ class PilotIntegrityTest {
         ProdutoRequest comFoto = new ProdutoRequest("Camisa com foto", "UNIDADE", null, null, null, 1,
                 new CategoriaRequest("Roupas"), "Camisa preta", "https://res.cloudinary.com/test/image/upload/camisa.webp");
         assertThrows(IllegalArgumentException.class, () -> produtos.criar(comFoto, outra));
+    }
+
+    @Test void cadastroEmMassaRespeitaLojaEPermissaoDeAdministrador() throws Exception {
+        String corpo = "{\"produtos\":[{\"nome\":\"Produto em massa\",\"tipo\":\"UNIDADE\"," +
+                "\"preco\":20,\"custoUnitario\":10,\"quantidadeEstoque\":3," +
+                "\"categoria\":{\"nome\":\"Geral\"},\"descricao\":null,\"imagemUrl\":null}]}";
+        assertEquals(403, http("POST", "/produtos/cadastro-em-massa", jwt.gerarToken(funcionaria), corpo).statusCode());
+        assertEquals(201, http("POST", "/produtos/cadastro-em-massa", jwt.gerarToken(admin), corpo).statusCode());
+        assertEquals(2, produtos.buscarTodos(loja).size());
     }
 
     @Test void permissoesBloqueioRevogacaoESenhaSaoAplicadosNaApi() throws Exception {
