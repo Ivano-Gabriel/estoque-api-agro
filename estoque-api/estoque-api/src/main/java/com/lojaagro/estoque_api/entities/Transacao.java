@@ -29,6 +29,18 @@ public class Transacao {
     @JoinColumn(name = "cliente_id")
     @com.fasterxml.jackson.annotation.JsonIgnore
     private Cliente cliente;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "venda_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Venda venda;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "forma_pagamento", length = 30)
+    private FormaPagamento formaPagamento;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean estornada = false;
     
     @Column(nullable = false)
     private String tipo; // "VENDA" ou "COMPRA"
@@ -90,6 +102,9 @@ public class Transacao {
     public String getDescricao() { return descricao; }
     public Loja getLoja() { return loja; }
     public Cliente getCliente() { return cliente; }
+    public Venda getVenda() { return venda; }
+    public FormaPagamento getFormaPagamento() { return formaPagamento; }
+    public boolean isEstornada() { return estornada; }
     
     // Setters
     public void setId(Long id) { this.id = id; }
@@ -113,6 +128,9 @@ public class Transacao {
     public void setDescricao(String descricao) { this.descricao = descricao; }
     public void setLoja(Loja loja) { this.loja = loja; }
     public void setCliente(Cliente cliente) { this.cliente = cliente; }
+    public void setVenda(Venda venda) { this.venda = venda; }
+    public void setFormaPagamento(FormaPagamento formaPagamento) { this.formaPagamento = formaPagamento; }
+    public void setEstornada(boolean estornada) { this.estornada = estornada; }
 
     private BigDecimal normalizar(BigDecimal valor) {
         return (valor == null ? BigDecimal.ZERO : valor).setScale(2, RoundingMode.HALF_UP);

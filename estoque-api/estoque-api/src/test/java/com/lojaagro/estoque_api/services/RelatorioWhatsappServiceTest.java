@@ -4,6 +4,7 @@ import com.lojaagro.estoque_api.dto.RelatorioWhatsappResponse;
 import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Transacao;
 import com.lojaagro.estoque_api.entities.Loja;
+import com.lojaagro.estoque_api.entities.FormaPagamento;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,7 @@ class RelatorioWhatsappServiceTest {
         Loja loja = mock(Loja.class); when(loja.getId()).thenReturn(1L); when(loja.isFinanceiroAtivo()).thenReturn(true);
 
         Transacao venda = transacao("VENDA", 2, "150.00", "80.00");
+        venda.setFormaPagamento(FormaPagamento.PIX);
         Transacao compra = transacao("COMPRA", 3, "100.00", "0.00");
         Produto critico = mock(Produto.class);
         when(critico.getNome()).thenReturn("Racao Premium");
@@ -55,6 +57,7 @@ class RelatorioWhatsappServiceTest {
         assertTrue(resposta.mensagem().contains("Total vendido: R$ 300,00"));
         assertTrue(resposta.mensagem().contains("Total reposto: R$ 300,00"));
         assertTrue(resposta.mensagem().contains("Lucro bruto das vendas: R$ 80,00"));
+        assertTrue(resposta.mensagem().contains("PIX: R$ 300,00"));
         assertTrue(resposta.mensagem().contains("Racao Premium: 4 un"));
         assertTrue(resposta.url().startsWith("https://wa.me/5582999999999?text="));
     }

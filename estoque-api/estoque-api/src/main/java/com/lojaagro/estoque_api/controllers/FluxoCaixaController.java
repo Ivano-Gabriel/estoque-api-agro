@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import com.lojaagro.estoque_api.services.UsuarioService;
 import com.lojaagro.estoque_api.services.FinanceiroService;
+import com.lojaagro.estoque_api.dto.CaixaResumoResponse;
 
 @RestController
 @RequestMapping("/fluxo-caixa")
@@ -21,9 +22,10 @@ public class FluxoCaixaController {
     }
 
     @GetMapping
-    public ResponseEntity<FluxoCaixa> getFluxoAtual(Authentication auth) {
+    public ResponseEntity<CaixaResumoResponse> getFluxoAtual(Authentication auth) {
         var loja = usuarios.lojaAtual(auth);
         financeiro.exigirAtivo(loja);
-        return ResponseEntity.ok(service.getFluxoAtual(loja.getId()));
+        var caixa = service.getFluxoAtual(loja.getId());
+        return ResponseEntity.ok(CaixaResumoResponse.de(caixa, service.recebimentosPorForma(loja.getId())));
     }
 }
