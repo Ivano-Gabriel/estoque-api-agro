@@ -45,6 +45,8 @@ class PilotIntegrityTest {
     @Autowired NotaRecebidaRepository notasRepo;
     @Autowired ClienteService clientes;
     @Autowired NotaRecebidaService notas;
+    @Autowired VendaService vendas;
+    @Autowired VendaRepository vendasRepo;
     @org.springframework.beans.factory.annotation.Value("${local.server.port}") int port;
     Usuario admin;
     Usuario funcionaria;
@@ -52,7 +54,7 @@ class PilotIntegrityTest {
     Loja loja;
 
     @BeforeEach void preparar() {
-        operacoes.deleteAll(); transacoes.deleteAll(); notasRepo.deleteAll(); clientesRepo.deleteAll();
+        operacoes.deleteAll(); transacoes.deleteAll(); vendasRepo.deleteAll(); notasRepo.deleteAll(); clientesRepo.deleteAll();
         produtoRepo.deleteAll(); categorias.deleteAll(); usuarios.deleteAll();
         FluxoCaixa caixa = caixas.findById(1L).orElseThrow();
         caixa.setTotalEntradas(BigDecimal.ZERO); caixa.setTotalSaidas(BigDecimal.ZERO); caixas.saveAndFlush(caixa);
@@ -176,6 +178,36 @@ class PilotIntegrityTest {
         assertEquals(403, http("POST", "/produtos/cadastro-em-massa", jwt.gerarToken(funcionaria), corpo).statusCode());
         assertEquals(201, http("POST", "/produtos/cadastro-em-massa", jwt.gerarToken(admin), corpo).statusCode());
         assertEquals(2, produtos.buscarTodos(loja).size());
+    }
+
+    @Test void pdvFechaCarrinhoSeparaPixEEstornaVendaInteira() {
+        Produto segundo = produtos.criar(new ProdutoRequest("Coleira", "UNIDADE", new BigDecimal("50.00"),
+                new BigDecimal("20.00"), null, 4, new CategoriaRequest("Acessórios"), null, null), loja);
+        ClienteResponse cliente = clientes.criar(new ClienteRequest("Maria", "82999999999", null,
+                null, Set.of()), loja);
+        UUID chave = UUID.randomUUID();
+        VendaRequest request = new VendaRequest(cliente.id(), FormaPagamento.PIX, new BigDecimal("10.00"), null,
+                List.of(new VendaRequest.Item(produto.getId(), 2), new VendaRequest.Item(segundo.getId(), 1)));
+
+        VendaResponse primeira = vendas.concluir(chave, request, admin);
+        VendaResponse repetida = vendas.concluir(chave, request, admin);
+        assertEquals(primeira.id(), repetida.id());
+        assertEquals(new BigDecimal("340.00"), primeira.total());
+        assertEquals(8, produtoRepo.findById(produto.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(3, produtoRepo.findById(segundo.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(2, transacoes.count());
+        assertEquals(new BigDecimal("340.00"), caixas.findById(1L).orElseThrow().getTotalEntradas());
+        String relatorio = relatorios.gerar("DIARIO", loja).mensagem();
+        assertTrue(relatorio.contains("Vendas: 1 operação / 3 unidades"));
+        assertTrue(relatorio.contains("PIX: R$ 340,00"));
+
+        VendaResponse cancelada = vendas.cancelar(chave, "Cliente desistiu", admin);
+        assertEquals(StatusVenda.CANCELADA, cancelada.status());
+        assertEquals(10, produtoRepo.findById(produto.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(4, produtoRepo.findById(segundo.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(new BigDecimal("0.00"), caixas.findById(1L).orElseThrow().getTotalEntradas());
+        assertTrue(transacoes.findAll().stream().allMatch(Transacao::isEstornada));
+        assertThrows(IllegalArgumentException.class, () -> vendas.cancelar(chave, "Outra vez", admin));
     }
 
     @Test void permissoesBloqueioRevogacaoESenhaSaoAplicadosNaApi() throws Exception {

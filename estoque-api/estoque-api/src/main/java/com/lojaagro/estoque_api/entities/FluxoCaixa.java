@@ -59,6 +59,18 @@ public class FluxoCaixa {
         recalcularSaldo();
         this.ultimaAtualizacao = LocalDateTime.now();
     }
+
+    public void estornarEntrada(BigDecimal valor) {
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor do estorno deve ser positivo");
+        }
+        if (totalEntradas.compareTo(valor) < 0) {
+            throw new IllegalArgumentException("O caixa não possui entradas suficientes para cancelar esta venda.");
+        }
+        totalEntradas = totalEntradas.subtract(valor).setScale(2, RoundingMode.HALF_UP);
+        recalcularSaldo();
+        ultimaAtualizacao = LocalDateTime.now();
+    }
     
     // Getters
     public Long getId() { return id; }

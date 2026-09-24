@@ -8,6 +8,7 @@ import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -20,6 +21,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.HashSet;
+import com.lojaagro.estoque_api.entities.FormaPagamento;
 
 @Service
 public class RelatorioWhatsappService {
@@ -44,6 +49,7 @@ public class RelatorioWhatsappService {
         this.numeroWhatsapp = numeroWhatsapp;
     }
 
+    @Transactional(readOnly = true)
     public RelatorioWhatsappResponse gerar(String periodoInformado, Loja loja) {
         Periodo periodo = Periodo.from(periodoInformado);
         String numero = normalizarNumero(loja.getWhatsapp() == null ? numeroWhatsapp : loja.getWhatsapp());
@@ -64,11 +70,12 @@ public class RelatorioWhatsappService {
                 .map(this::zeroSeNulo)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal saldo = totalVendido.subtract(totalReposto);
+        Map<FormaPagamento, BigDecimal> formas = somarFormas(vendas);
 
         String mensagem = montarMensagem(
-                periodo, inicio, agora, vendas.size(), compras.size(),
+                periodo, inicio, agora, contarOperacoes(vendas), compras.size(),
                 unidadesVendidas, unidadesRepostas, totalVendido,
-                totalReposto, lucroReal, saldo, produtosCriticos, loja.isFinanceiroAtivo());
+                totalReposto, lucroReal, saldo, formas, produtosCriticos, loja.isFinanceiroAtivo());
         String url = "https://wa.me/" + numero + "?text="
                 + URLEncoder.encode(mensagem, StandardCharsets.UTF_8);
 
@@ -78,7 +85,28 @@ public class RelatorioWhatsappService {
     private List<Transacao> filtrar(List<Transacao> transacoes, String tipo) {
         return transacoes.stream()
                 .filter(transacao -> tipo.equalsIgnoreCase(transacao.getTipo()))
+                .filter(transacao -> !transacao.isEstornada())
                 .toList();
+    }
+
+    private int contarOperacoes(List<Transacao> vendas) {
+        var vendasPdv = new HashSet<java.util.UUID>();
+        int legadas = 0;
+        for (Transacao transacao : vendas) {
+            if (transacao.getVenda() == null) legadas++;
+            else vendasPdv.add(transacao.getVenda().getId());
+        }
+        return legadas + vendasPdv.size();
+    }
+
+    private Map<FormaPagamento, BigDecimal> somarFormas(List<Transacao> vendas) {
+        Map<FormaPagamento, BigDecimal> totais = new LinkedHashMap<>();
+        for (Transacao venda : vendas) {
+            FormaPagamento forma = venda.getFormaPagamento() == null
+                    ? FormaPagamento.NAO_INFORMADO : venda.getFormaPagamento();
+            totais.merge(forma, zeroSeNulo(venda.getValorTotal()), BigDecimal::add);
+        }
+        return totais;
     }
 
     private int somarQuantidades(List<Transacao> transacoes) {
@@ -108,6 +136,7 @@ public class RelatorioWhatsappService {
             BigDecimal totalReposto,
             BigDecimal lucroReal,
             BigDecimal saldo,
+            Map<FormaPagamento, BigDecimal> formas,
             List<Produto> produtosCriticos,
             boolean financeiroAtivo) {
 
@@ -131,7 +160,14 @@ public class RelatorioWhatsappService {
             mensagem.append("Total vendido: ").append(moeda(totalVendido)).append("\n")
                     .append("Total reposto: ").append(moeda(totalReposto)).append("\n")
                     .append("Lucro bruto das vendas: ").append(moeda(lucroReal)).append("\n")
-                    .append("Saldo do período: ").append(moeda(saldo)).append("\n");
+                    .append("Saldo do período: ").append(moeda(saldo)).append("\n")
+                    .append("\n*Recebimentos por forma*\n");
+            if (formas.isEmpty()) {
+                mensagem.append("Nenhum recebimento no período.\n");
+            } else {
+                formas.forEach((forma, valor) -> mensagem.append(forma.getRotulo())
+                        .append(": ").append(moeda(valor)).append("\n"));
+            }
         }
         mensagem.append("\n*Estoque crítico agora: ")
                 .append(produtosCriticos.size()).append("*\n");
