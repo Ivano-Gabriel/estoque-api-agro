@@ -29,4 +29,10 @@ public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
     List<Transacao> findTop10ByLojaIdOrderByDataDesc(Long lojaId);
 
     List<Transacao> findByLojaIdOrderByDataDesc(Long lojaId);
+
+    @Query("SELECT t.produto.id, t.produto.nome, SUM(t.quantidade) FROM Transacao t "
+            + "WHERE t.loja.id = :lojaId AND t.cliente.id = :clienteId AND t.tipo = 'VENDA' "
+            + "GROUP BY t.produto.id, t.produto.nome ORDER BY SUM(t.quantidade) DESC")
+    List<Object[]> buscarMaisCompradosCliente(@Param("lojaId") Long lojaId,
+                                               @Param("clienteId") Long clienteId);
 }

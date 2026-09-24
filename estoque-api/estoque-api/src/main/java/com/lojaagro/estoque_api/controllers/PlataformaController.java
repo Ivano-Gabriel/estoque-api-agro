@@ -21,6 +21,7 @@ public class PlataformaController {
             @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 100) String nome,
             @NotNull Boolean financeiroAtivo,
             Boolean fotosAtivas,
+            Boolean notasFiscaisAtivas,
             @jakarta.validation.constraints.Size(max = 20) String whatsapp) {}
 
     @GetMapping public List<Loja> listar() { return lojas.listar(); }
@@ -36,6 +37,7 @@ public class PlataformaController {
 
     @PutMapping("/{id}/configuracao")
     public Loja configurar(@PathVariable Long id, @Valid @RequestBody Configuracao config) {
-        return lojas.configurar(id, config.nome(), config.financeiroAtivo(), config.fotosAtivas(), config.whatsapp());
+        return lojas.configurar(id, config.nome(), config.financeiroAtivo(), config.fotosAtivas(),
+                config.notasFiscaisAtivas(), config.whatsapp());
     }
 }

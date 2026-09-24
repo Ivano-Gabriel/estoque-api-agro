@@ -11,6 +11,7 @@ public record CriarLojaRequest(
         @NotBlank @Pattern(regexp = "[a-z0-9]+(?:-[a-z0-9]+)*") @Size(max = 60) String slug,
         @NotNull Boolean financeiroAtivo,
         Boolean fotosAtivas,
+        Boolean notasFiscaisAtivas,
         @Size(max = 20) String whatsapp,
         @NotBlank @Email @Size(max = 150) String adminEmail,
         @NotBlank @Size(min = 10, max = 72) String adminSenha) {}

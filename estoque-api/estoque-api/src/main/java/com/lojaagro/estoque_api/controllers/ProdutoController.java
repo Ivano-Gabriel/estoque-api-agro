@@ -120,14 +120,16 @@ public class ProdutoController {
     }
 
     @PutMapping("/{id}/venda-com-lucro")
-    public ResponseEntity<Void> vendaComLucro(
+    public ResponseEntity<?> vendaComLucro(
             @PathVariable Long id,
             @Valid @RequestBody MovimentacaoRequest dados,
             Authentication authentication,
             @RequestHeader(value = "Idempotency-Key", required = false) String chave) {
         Usuario usuario = usuarioService.buscarPorEmail(authentication.getName());
-        movimentacaoService.executar(chave, true, id, dados, usuario);
-        return ResponseEntity.noContent().build();
+        var comprovante = movimentacaoService.executar(chave, true, id, dados, usuario);
+        return comprovante == null
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.ok(comprovante);
     }
 
     @PutMapping("/{id}/compra-com-custo")

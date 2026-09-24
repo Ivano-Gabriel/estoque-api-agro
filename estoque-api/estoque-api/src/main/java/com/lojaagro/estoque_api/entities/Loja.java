@@ -31,6 +31,9 @@ public class Loja {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean fotosAtivas = false;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean notasFiscaisAtivas = false;
+
     @Column(length = 20)
     private String whatsapp;
 
@@ -41,10 +44,20 @@ public class Loja {
     protected Loja() {}
 
     public Loja(String nome, String slug, boolean financeiroAtivo, boolean fotosAtivas, String whatsapp) {
-        atualizar(nome, slug, financeiroAtivo, fotosAtivas, whatsapp);
+        this(nome, slug, financeiroAtivo, fotosAtivas, false, whatsapp);
+    }
+
+    public Loja(String nome, String slug, boolean financeiroAtivo, boolean fotosAtivas,
+                boolean notasFiscaisAtivas, String whatsapp) {
+        atualizar(nome, slug, financeiroAtivo, fotosAtivas, notasFiscaisAtivas, whatsapp);
     }
 
     public void atualizar(String nome, String slug, boolean financeiroAtivo, boolean fotosAtivas, String whatsapp) {
+        atualizar(nome, slug, financeiroAtivo, fotosAtivas, notasFiscaisAtivas, whatsapp);
+    }
+
+    public void atualizar(String nome, String slug, boolean financeiroAtivo, boolean fotosAtivas,
+                          boolean notasFiscaisAtivas, String whatsapp) {
         if (nome == null || nome.isBlank()) throw new IllegalArgumentException("Nome da loja é obrigatório.");
         if (slug == null || !slug.matches("[a-z0-9]+(?:-[a-z0-9]+)*")) {
             throw new IllegalArgumentException("Identificador da loja deve usar letras minúsculas, números e hífens.");
@@ -53,6 +66,7 @@ public class Loja {
         this.slug = slug.trim();
         this.financeiroAtivo = financeiroAtivo;
         this.fotosAtivas = fotosAtivas;
+        this.notasFiscaisAtivas = notasFiscaisAtivas;
         this.whatsapp = normalizarWhatsapp(whatsapp);
     }
 
@@ -71,13 +85,20 @@ public class Loja {
     public boolean isAtiva() { return ativa; }
     public boolean isFinanceiroAtivo() { return financeiroAtivo; }
     public boolean isFotosAtivas() { return fotosAtivas; }
+    public boolean isNotasFiscaisAtivas() { return notasFiscaisAtivas; }
     public String getWhatsapp() { return whatsapp; }
     public void setAtiva(boolean ativa) { this.ativa = ativa; }
     public void configurar(String nome, boolean financeiroAtivo, boolean fotosAtivas, String whatsapp) {
+        configurar(nome, financeiroAtivo, fotosAtivas, notasFiscaisAtivas, whatsapp);
+    }
+
+    public void configurar(String nome, boolean financeiroAtivo, boolean fotosAtivas,
+                           boolean notasFiscaisAtivas, String whatsapp) {
         if (nome == null || nome.isBlank()) throw new IllegalArgumentException("Nome da loja é obrigatório.");
         this.nome = nome.trim();
         this.financeiroAtivo = financeiroAtivo;
         this.fotosAtivas = fotosAtivas;
+        this.notasFiscaisAtivas = notasFiscaisAtivas;
         this.whatsapp = normalizarWhatsapp(whatsapp);
     }
 }
