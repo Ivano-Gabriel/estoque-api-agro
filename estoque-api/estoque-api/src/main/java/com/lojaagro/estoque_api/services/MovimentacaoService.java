@@ -1,6 +1,7 @@
 package com.lojaagro.estoque_api.services;
 
 import com.lojaagro.estoque_api.dto.MovimentacaoRequest;
+import com.lojaagro.estoque_api.dto.ComprovanteVenda;
 import com.lojaagro.estoque_api.entities.OperacaoEstoque;
 import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.entities.Transacao;
@@ -22,7 +23,7 @@ public class MovimentacaoService {
     }
 
     @Transactional
-    public Transacao executar(String chave, boolean venda, Long produtoId, MovimentacaoRequest dados, Usuario usuario) {
+    public ComprovanteVenda executar(String chave, boolean venda, Long produtoId, MovimentacaoRequest dados, Usuario usuario) {
         UUID id;
         try {
             id = UUID.fromString(chave);
@@ -40,7 +41,8 @@ public class MovimentacaoService {
             if (!anterior.get().getAssinatura().equals(assinatura)) {
                 throw new IllegalArgumentException("Chave de operação já utilizada com outros dados.");
             }
-            return anterior.get().getTransacao();
+            Transacao transacaoAnterior = anterior.get().getTransacao();
+            return transacaoAnterior == null ? null : ComprovanteVenda.from(transacaoAnterior);
         }
         Transacao transacao;
         if (venda) {
@@ -51,6 +53,6 @@ public class MovimentacaoService {
             transacao = produtos.comprarComCusto(produtoId, dados.quantidade(), dados.preco(), usuario);
         }
         operacoes.save(new OperacaoEstoque(id, assinatura, usuario.getLoja(), transacao));
-        return transacao;
+        return ComprovanteVenda.from(transacao);
     }
 }
