@@ -24,6 +24,11 @@ public class Transacao {
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Cliente cliente;
     
     @Column(nullable = false)
     private String tipo; // "VENDA" ou "COMPRA"
@@ -84,6 +89,7 @@ public class Transacao {
     public LocalDateTime getData() { return data; }
     public String getDescricao() { return descricao; }
     public Loja getLoja() { return loja; }
+    public Cliente getCliente() { return cliente; }
     
     // Setters
     public void setId(Long id) { this.id = id; }
@@ -106,6 +112,7 @@ public class Transacao {
     public void setData(LocalDateTime data) { this.data = data; }
     public void setDescricao(String descricao) { this.descricao = descricao; }
     public void setLoja(Loja loja) { this.loja = loja; }
+    public void setCliente(Cliente cliente) { this.cliente = cliente; }
 
     private BigDecimal normalizar(BigDecimal valor) {
         return (valor == null ? BigDecimal.ZERO : valor).setScale(2, RoundingMode.HALF_UP);

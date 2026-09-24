@@ -3,6 +3,7 @@ package com.lojaagro.estoque_api.services;
 import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Transacao;
 import com.lojaagro.estoque_api.entities.Usuario;
+import com.lojaagro.estoque_api.entities.Cliente;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +27,7 @@ public class TransacaoService {
     public Transacao registrarTransacao(Produto produto, Usuario usuario, String tipo, 
                                        int quantidade, BigDecimal precoUnitario,
                                        BigDecimal custoUnitario, BigDecimal lucro,
-                                       String descricao) {
+                                       String descricao, Cliente cliente) {
         BigDecimal valorTotal = precoUnitario.multiply(BigDecimal.valueOf(quantidade));
         
         Transacao transacao = new Transacao();
@@ -41,6 +42,7 @@ public class TransacaoService {
         transacao.setLucro(lucro);
         transacao.setData(LocalDateTime.now(businessClock));
         transacao.setDescricao(descricao);
+        transacao.setCliente(cliente);
         
         return repository.save(transacao);
     }

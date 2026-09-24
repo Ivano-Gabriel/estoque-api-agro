@@ -5,6 +5,8 @@ import com.lojaagro.estoque_api.entities.Categoria;
 import com.lojaagro.estoque_api.entities.Loja;
 import com.lojaagro.estoque_api.entities.Produto;
 import com.lojaagro.estoque_api.entities.Usuario;
+import com.lojaagro.estoque_api.entities.Cliente;
+import com.lojaagro.estoque_api.entities.Transacao;
 import com.lojaagro.estoque_api.repositories.CategoriaRepository;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import org.springframework.stereotype.Service;
@@ -68,7 +70,8 @@ public class ProdutoService {
     }
 
     @Transactional
-    public Produto venderComLucro(Long produtoId, int quantidade, BigDecimal precoInformado, Usuario usuario) {
+    public Transacao venderComLucro(Long produtoId, int quantidade, BigDecimal precoInformado,
+                                    Usuario usuario, Cliente cliente) {
         Loja loja = usuario.getLoja();
         Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(produtoId, loja.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
@@ -78,14 +81,14 @@ public class ProdutoService {
                 ? preco.subtract(custo).multiply(BigDecimal.valueOf(quantidade)) : BigDecimal.ZERO;
         produto.venderProduto(quantidade);
         produtos.save(produto);
-        transacoes.registrarTransacao(produto, usuario, "VENDA", quantidade, preco, custo, lucro,
-                "Saída de " + quantidade + "x " + produto.getNome());
+        Transacao transacao = transacoes.registrarTransacao(produto, usuario, "VENDA", quantidade, preco, custo, lucro,
+                "Saída de " + quantidade + "x " + produto.getNome(), cliente);
         if (loja.isFinanceiroAtivo()) caixa.adicionarEntrada(loja.getId(), preco.multiply(BigDecimal.valueOf(quantidade)));
-        return produto;
+        return transacao;
     }
 
     @Transactional
-    public Produto comprarComCusto(Long produtoId, int quantidade, BigDecimal precoInformado, Usuario usuario) {
+    public Transacao comprarComCusto(Long produtoId, int quantidade, BigDecimal precoInformado, Usuario usuario) {
         Loja loja = usuario.getLoja();
         Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(produtoId, loja.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
@@ -93,10 +96,10 @@ public class ProdutoService {
         if (loja.isFinanceiroAtivo()) produto.comprarProduto(quantidade, preco);
         else produto.reporSemCusto(quantidade);
         produtos.save(produto);
-        transacoes.registrarTransacao(produto, usuario, "COMPRA", quantidade, preco, preco, BigDecimal.ZERO,
-                "Reposição de " + quantidade + "x " + produto.getNome());
+        Transacao transacao = transacoes.registrarTransacao(produto, usuario, "COMPRA", quantidade, preco, preco, BigDecimal.ZERO,
+                "Reposição de " + quantidade + "x " + produto.getNome(), null);
         if (loja.isFinanceiroAtivo()) caixa.adicionarSaida(loja.getId(), preco.multiply(BigDecimal.valueOf(quantidade)));
-        return produto;
+        return transacao;
     }
 
     @Transactional

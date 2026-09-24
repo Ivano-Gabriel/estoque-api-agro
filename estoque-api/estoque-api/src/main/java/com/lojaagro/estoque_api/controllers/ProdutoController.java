@@ -5,6 +5,7 @@ import com.lojaagro.estoque_api.entities.Usuario;
 import com.lojaagro.estoque_api.dto.MovimentacaoRequest;
 import com.lojaagro.estoque_api.dto.ProdutoRequest;
 import com.lojaagro.estoque_api.dto.CadastroProdutosLoteRequest;
+import com.lojaagro.estoque_api.dto.ComprovanteVenda;
 import com.lojaagro.estoque_api.services.ProdutoService;
 import com.lojaagro.estoque_api.services.UsuarioService;
 import org.springframework.http.ResponseEntity;
@@ -120,14 +121,16 @@ public class ProdutoController {
     }
 
     @PutMapping("/{id}/venda-com-lucro")
-    public ResponseEntity<Void> vendaComLucro(
+    public ResponseEntity<?> vendaComLucro(
             @PathVariable Long id,
             @Valid @RequestBody MovimentacaoRequest dados,
             Authentication authentication,
             @RequestHeader(value = "Idempotency-Key", required = false) String chave) {
         Usuario usuario = usuarioService.buscarPorEmail(authentication.getName());
-        movimentacaoService.executar(chave, true, id, dados, usuario);
-        return ResponseEntity.noContent().build();
+        var transacao = movimentacaoService.executar(chave, true, id, dados, usuario);
+        return transacao == null
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.ok(ComprovanteVenda.from(transacao));
     }
 
     @PutMapping("/{id}/compra-com-custo")

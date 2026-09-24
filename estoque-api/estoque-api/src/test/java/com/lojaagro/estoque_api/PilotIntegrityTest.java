@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.net.URI;
 import java.net.http.*;
 import java.util.UUID;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -39,6 +41,10 @@ class PilotIntegrityTest {
     @Autowired JwtUtil jwt;
     @Autowired PasswordEncoder encoder;
     @Autowired LojaRepository lojas;
+    @Autowired ClienteRepository clientesRepo;
+    @Autowired NotaRecebidaRepository notasRepo;
+    @Autowired ClienteService clientes;
+    @Autowired NotaRecebidaService notas;
     @org.springframework.beans.factory.annotation.Value("${local.server.port}") int port;
     Usuario admin;
     Usuario funcionaria;
@@ -46,10 +52,13 @@ class PilotIntegrityTest {
     Loja loja;
 
     @BeforeEach void preparar() {
-        operacoes.deleteAll(); transacoes.deleteAll(); produtoRepo.deleteAll(); categorias.deleteAll(); usuarios.deleteAll();
+        operacoes.deleteAll(); transacoes.deleteAll(); notasRepo.deleteAll(); clientesRepo.deleteAll();
+        produtoRepo.deleteAll(); categorias.deleteAll(); usuarios.deleteAll();
         FluxoCaixa caixa = caixas.findById(1L).orElseThrow();
         caixa.setTotalEntradas(BigDecimal.ZERO); caixa.setTotalSaidas(BigDecimal.ZERO); caixas.saveAndFlush(caixa);
         loja = lojas.findAll().getFirst();
+        loja.configurar("Loja piloto", true, false, false, "5582999999999");
+        lojas.saveAndFlush(loja);
         admin = usuario("admin@teste.local", UsuarioRole.ADMIN);
         funcionaria = usuario("funcionaria@teste.local", UsuarioRole.FUNCIONARIA);
         produto = produtos.criar(request("Ração Premium 15kg", LocalDate.of(2027, 1, 10)), loja);
@@ -122,6 +131,44 @@ class PilotIntegrityTest {
         assertThrows(IllegalArgumentException.class, () -> produtos.criar(comFoto, outra));
     }
 
+    @Test void clienteFavoritosEComprasFicamIsoladosNaLoja() {
+        ClienteResponse cliente = clientes.criar(new ClienteRequest("Maria", "82999999999", null,
+                "Prefere embalagem pequena", Set.of(produto.getId())), loja);
+        movimentos.executar(UUID.randomUUID().toString(), true, produto.getId(),
+                new MovimentacaoRequest(2, new BigDecimal("150.00"), cliente.id()), admin);
+        ClienteResponse detalhe = clientes.buscar(cliente.id(), loja);
+        assertEquals(1, detalhe.favoritos().size());
+        assertEquals(1, detalhe.maisComprados().size());
+        assertEquals(2, detalhe.maisComprados().getFirst().quantidade());
+
+        Loja outra = lojas.saveAndFlush(new Loja("Loja cliente isolada", "loja-cliente-isolada", false, false, null));
+        caixas.saveAndFlush(new FluxoCaixa(outra.getId(), outra));
+        assertThrows(IllegalArgumentException.class, () -> clientes.buscar(cliente.id(), outra));
+        assertThrows(IllegalArgumentException.class, () -> clientes.criar(new ClienteRequest(
+                "Invasor", null, null, null, Set.of(produto.getId())), outra));
+    }
+
+    @Test void notaRecebidaOpcionalAtualizaEstoqueUmaVez() {
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> notas.listar(loja));
+        loja.configurar(loja.getNome(), true, false, true, loja.getWhatsapp());
+        lojas.saveAndFlush(loja);
+        NotaRecebidaRequest semChave = new NotaRecebidaRequest("Fornecedor teste", null, "122", null,
+                null, null, LocalDate.now(), new BigDecimal("100.00"), false, true, null,
+                List.of(new NotaRecebidaRequest.Item(produto.getId(), 1, new BigDecimal("100.00"))));
+        assertThrows(IllegalArgumentException.class, () -> notas.criar(semChave, admin));
+        String chave = "12345678901234567890123456789012345678901234";
+        NotaRecebidaRequest request = new NotaRecebidaRequest("Fornecedor teste", "12345678000199",
+                "123", "1", chave, LocalDate.now(), LocalDate.now(), new BigDecimal("300.00"),
+                false, true, "Recebida sem avarias",
+                List.of(new NotaRecebidaRequest.Item(produto.getId(), 3, new BigDecimal("100.00"))));
+        NotaRecebidaResponse criada = notas.criar(request, admin);
+        assertTrue(criada.estoqueAtualizado());
+        assertEquals(13, produtoRepo.findById(produto.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(1, notasRepo.count());
+        assertThrows(IllegalArgumentException.class, () -> notas.criar(request, admin));
+        assertEquals(13, produtoRepo.findById(produto.getId()).orElseThrow().getQuantidadeEstoque());
+    }
+
     @Test void cadastroEmMassaRespeitaLojaEPermissaoDeAdministrador() throws Exception {
         String corpo = "{\"produtos\":[{\"nome\":\"Produto em massa\",\"tipo\":\"UNIDADE\"," +
                 "\"preco\":20,\"custoUnitario\":10,\"quantidadeEstoque\":3," +
@@ -163,8 +210,11 @@ class PilotIntegrityTest {
                 .header("Idempotency-Key", UUID.randomUUID().toString())
                 .PUT(HttpRequest.BodyPublishers.ofString(body)).build();
         try (var client = HttpClient.newHttpClient()) {
-            assertEquals(204, client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
-            assertEquals(204, client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+            var primeira = client.send(request, HttpResponse.BodyHandlers.ofString());
+            var repetida = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, primeira.statusCode());
+            assertEquals(200, repetida.statusCode());
+            assertTrue(primeira.body().contains("COMPROVANTE NÃO FISCAL"));
             var preflight = HttpRequest.newBuilder(request.uri()).header("Origin", "http://localhost:5173")
                     .header("Access-Control-Request-Method", "PUT")
                     .header("Access-Control-Request-Headers", "authorization,content-type,idempotency-key")

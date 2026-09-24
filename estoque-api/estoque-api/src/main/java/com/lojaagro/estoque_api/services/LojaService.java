@@ -35,7 +35,8 @@ public class LojaService {
         if (usuarios.existsByEmail(email)) throw new IllegalArgumentException("E-mail do administrador já utilizado.");
         AuthController.validarSenha(request.adminSenha());
         Loja loja = lojas.saveAndFlush(new Loja(request.nome(), request.slug(), request.financeiroAtivo(),
-                Boolean.TRUE.equals(request.fotosAtivas()), request.whatsapp()));
+                Boolean.TRUE.equals(request.fotosAtivas()), Boolean.TRUE.equals(request.notasFiscaisAtivas()),
+                request.whatsapp()));
         caixas.save(new FluxoCaixa(loja.getId(), loja));
         Usuario admin = new Usuario();
         admin.setEmail(email);
@@ -55,10 +56,13 @@ public class LojaService {
     }
 
     @Transactional
-    public Loja configurar(Long id, String nome, boolean financeiroAtivo, Boolean fotosAtivas, String whatsapp) {
+    public Loja configurar(Long id, String nome, boolean financeiroAtivo, Boolean fotosAtivas,
+                           Boolean notasFiscaisAtivas, String whatsapp) {
         Loja loja = lojas.findById(id).orElseThrow(() -> new IllegalArgumentException("Loja não encontrada."));
         loja.configurar(nome, financeiroAtivo,
-                fotosAtivas == null ? loja.isFotosAtivas() : fotosAtivas, whatsapp);
+                fotosAtivas == null ? loja.isFotosAtivas() : fotosAtivas,
+                notasFiscaisAtivas == null ? loja.isNotasFiscaisAtivas() : notasFiscaisAtivas,
+                whatsapp);
         usuarios.findByLojaId(id).forEach(Usuario::revogarSessoes);
         return loja;
     }
