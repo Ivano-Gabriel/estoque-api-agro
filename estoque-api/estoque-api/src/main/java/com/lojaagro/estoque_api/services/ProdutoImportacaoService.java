@@ -113,7 +113,7 @@ public class ProdutoImportacaoService {
             exemplo.createCell(6).setCellValue("31/12/2027");
             exemplo.createCell(7).setCellValue("RAC-15KG-PREMIUM");
             exemplo.createCell(8).setCellValue("7891234567890");
-            exemplo.createCell(9).setCellValue("Pacote 15kg");
+            exemplo.createCell(9).setCellValue("");
             exemplo.createCell(10).setCellValue(5);
 
             int[] larguras = {32, 16, 18, 18, 14, 22, 18, 24, 22, 24, 16};
