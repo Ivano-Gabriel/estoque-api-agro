@@ -6,6 +6,7 @@ import com.lojaagro.estoque_api.entities.Transacao;
 import com.lojaagro.estoque_api.entities.Loja;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,16 +38,30 @@ public class RelatorioWhatsappService {
     private final ProdutoRepository produtoRepository;
     private final Clock businessClock;
     private final String numeroWhatsapp;
+    private final com.lojaagro.estoque_api.repositories.PagamentoVendaRepository pagamentos;
+    private final com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository devolucoes;
 
+    @Autowired
     public RelatorioWhatsappService(
             TransacaoRepository transacaoRepository,
             ProdutoRepository produtoRepository,
             Clock businessClock,
+            com.lojaagro.estoque_api.repositories.PagamentoVendaRepository pagamentos,
+            com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository devolucoes,
             @Value("${app.whatsapp.report-number:}") String numeroWhatsapp) {
         this.transacaoRepository = transacaoRepository;
         this.produtoRepository = produtoRepository;
         this.businessClock = businessClock;
+        this.pagamentos = pagamentos;
+        this.devolucoes = devolucoes;
         this.numeroWhatsapp = numeroWhatsapp;
+    }
+
+    RelatorioWhatsappService(TransacaoRepository transacaoRepository,
+                             ProdutoRepository produtoRepository,
+                             Clock businessClock,
+                             String numeroWhatsapp) {
+        this(transacaoRepository, produtoRepository, businessClock, null, null, numeroWhatsapp);
     }
 
     @Transactional(readOnly = true)
@@ -59,23 +74,26 @@ public class RelatorioWhatsappService {
         List<Transacao> transacoes = transacaoRepository.findByPeriodo(loja.getId(), inicio, agora);
         List<Transacao> vendas = filtrar(transacoes, "VENDA");
         List<Transacao> compras = filtrar(transacoes, "COMPRA");
+        List<Transacao> retornos = filtrar(transacoes, "DEVOLUCAO");
         List<Produto> produtosCriticos = produtoRepository.buscarEstoqueCritico(loja.getId());
 
         int unidadesVendidas = somarQuantidades(vendas);
         int unidadesRepostas = somarQuantidades(compras);
-        BigDecimal totalVendido = somarValores(vendas);
+        BigDecimal totalDevolvido = somarValores(retornos);
+        BigDecimal totalVendido = somarValores(vendas).subtract(totalDevolvido);
         BigDecimal totalReposto = somarValores(compras);
-        BigDecimal lucroReal = vendas.stream()
+        BigDecimal lucroReal = java.util.stream.Stream.concat(vendas.stream(), retornos.stream())
                 .map(Transacao::getLucro)
                 .map(this::zeroSeNulo)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal saldo = totalVendido.subtract(totalReposto);
-        Map<FormaPagamento, BigDecimal> formas = somarFormas(vendas);
+        Map<FormaPagamento, BigDecimal> formas = pagamentos == null
+                ? somarFormas(vendas) : somarFormasPeriodo(loja.getId(), inicio, agora);
 
         String mensagem = montarMensagem(
                 periodo, inicio, agora, contarOperacoes(vendas), compras.size(),
                 unidadesVendidas, unidadesRepostas, totalVendido,
-                totalReposto, lucroReal, saldo, formas, produtosCriticos, loja.isFinanceiroAtivo());
+                totalReposto, totalDevolvido, lucroReal, saldo, formas, produtosCriticos, loja.isFinanceiroAtivo());
         String url = "https://wa.me/" + numero + "?text="
                 + URLEncoder.encode(mensagem, StandardCharsets.UTF_8);
 
@@ -109,6 +127,14 @@ public class RelatorioWhatsappService {
         return totais;
     }
 
+    private Map<FormaPagamento, BigDecimal> somarFormasPeriodo(Long lojaId, LocalDateTime inicio, LocalDateTime fim) {
+        Map<FormaPagamento, BigDecimal> totais = new LinkedHashMap<>();
+        pagamentos.somarPorFormaPeriodo(lojaId,inicio,fim).forEach(l -> totais.put((FormaPagamento)l[0],zeroSeNulo((BigDecimal)l[1])));
+        devolucoes.somarPorFormaPeriodo(lojaId,inicio,fim).forEach(l -> totais.merge((FormaPagamento)l[0],zeroSeNulo((BigDecimal)l[1]).negate(),BigDecimal::add));
+        totais.entrySet().removeIf(e -> e.getValue().signum() == 0);
+        return totais;
+    }
+
     private int somarQuantidades(List<Transacao> transacoes) {
         return transacoes.stream().mapToInt(Transacao::getQuantidade).sum();
     }
@@ -134,6 +160,7 @@ public class RelatorioWhatsappService {
             int unidadesRepostas,
             BigDecimal totalVendido,
             BigDecimal totalReposto,
+            BigDecimal totalDevolvido,
             BigDecimal lucroReal,
             BigDecimal saldo,
             Map<FormaPagamento, BigDecimal> formas,
@@ -159,6 +186,7 @@ public class RelatorioWhatsappService {
         if (financeiroAtivo) {
             mensagem.append("Total vendido: ").append(moeda(totalVendido)).append("\n")
                     .append("Total reposto: ").append(moeda(totalReposto)).append("\n")
+                    .append("Total devolvido: ").append(moeda(totalDevolvido)).append("\n")
                     .append("Lucro bruto das vendas: ").append(moeda(lucroReal)).append("\n")
                     .append("Saldo do período: ").append(moeda(saldo)).append("\n")
                     .append("\n*Recebimentos por forma*\n");

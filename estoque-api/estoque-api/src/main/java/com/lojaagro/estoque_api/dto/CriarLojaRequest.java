@@ -12,6 +12,14 @@ public record CriarLojaRequest(
         @NotNull Boolean financeiroAtivo,
         Boolean fotosAtivas,
         Boolean notasFiscaisAtivas,
+        Boolean caixaOperacionalAtivo,
+        Boolean lanchoneteAtiva,
         @Size(max = 20) String whatsapp,
         @NotBlank @Email @Size(max = 150) String adminEmail,
-        @NotBlank @Size(min = 10, max = 72) String adminSenha) {}
+        @NotBlank @Size(min = 10, max = 72) String adminSenha) {
+    public CriarLojaRequest(String nome, String slug, Boolean financeiroAtivo, Boolean fotosAtivas,
+                            Boolean notasFiscaisAtivas, String whatsapp, String adminEmail, String adminSenha) {
+        this(nome, slug, financeiroAtivo, fotosAtivas, notasFiscaisAtivas,
+                false, false, whatsapp, adminEmail, adminSenha);
+    }
+}

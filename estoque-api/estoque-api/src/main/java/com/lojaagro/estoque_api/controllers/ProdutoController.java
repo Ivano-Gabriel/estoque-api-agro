@@ -31,17 +31,20 @@ public class ProdutoController {
     private final ProdutoImportacaoService importacaoService;
     private final ProdutoCadastroLoteService cadastroLoteService;
     private final com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService;
+    private final com.lojaagro.estoque_api.services.AuditoriaService auditoria;
 
     public ProdutoController(ProdutoService service,
                              UsuarioService usuarioService,
                              ProdutoImportacaoService importacaoService,
                              ProdutoCadastroLoteService cadastroLoteService,
-                             com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService) {
+                             com.lojaagro.estoque_api.services.MovimentacaoService movimentacaoService,
+                             com.lojaagro.estoque_api.services.AuditoriaService auditoria) {
         this.service = service;
         this.usuarioService = usuarioService;
         this.importacaoService = importacaoService;
         this.cadastroLoteService = cadastroLoteService;
         this.movimentacaoService = movimentacaoService;
+        this.auditoria = auditoria;
     }
 
     @GetMapping
@@ -58,7 +61,9 @@ public class ProdutoController {
 
     @PostMapping
     public ResponseEntity<Produto> criar(@Valid @RequestBody ProdutoRequest produto, Authentication auth) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(produto, usuarioService.lojaAtual(auth)));
+        Produto criado = service.criar(produto, usuarioService.lojaAtual(auth));
+        auditoria.registrar(usuarioService.atual(auth), "CRIAR", "PRODUTO", criado.getId(), criado.getNome());
+        return ResponseEntity.status(HttpStatus.CREATED).body(criado);
     }
 
     @PostMapping("/cadastro-em-massa")
@@ -70,13 +75,22 @@ public class ProdutoController {
         if (!resultado.erros().isEmpty()) {
             return ResponseEntity.unprocessableEntity().body(resultado);
         }
+        auditoria.registrar(usuarioService.atual(auth), "CADASTRO_MASSA", "PRODUTO", null,
+                "Produtos cadastrados: " + resultado.totalImportado());
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Produto> atualizar(@PathVariable Long id,
                                              @Valid @RequestBody ProdutoRequest produto, Authentication auth) {
-        return ResponseEntity.ok(service.atualizar(id, produto, usuarioService.lojaAtual(auth)));
+        Produto anterior = service.buscarPorId(id, usuarioService.lojaAtual(auth))
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
+        String antes = anterior.getNome() + " | estoque " + anterior.getQuantidadeEstoque()
+                + " | preço " + anterior.getPreco();
+        Produto atualizado = service.atualizar(id, produto, usuarioService.lojaAtual(auth));
+        auditoria.registrar(usuarioService.atual(auth), "ATUALIZAR", "PRODUTO", id,
+                "Antes: " + antes + " • Depois: " + atualizado.getNome() + " | preço " + atualizado.getPreco());
+        return ResponseEntity.ok(atualizado);
     }
 
     @PostMapping(value = "/importacao", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -87,6 +101,8 @@ public class ProdutoController {
         if (!resultado.erros().isEmpty()) {
             return ResponseEntity.unprocessableEntity().body(resultado);
         }
+        auditoria.registrar(usuarioService.atual(auth), "IMPORTAR_PLANILHA", "PRODUTO", null,
+                "Produtos importados: " + resultado.totalImportado());
         return ResponseEntity.ok(resultado);
     }
 
@@ -104,6 +120,7 @@ public class ProdutoController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Long id, Authentication auth) {
         service.deletar(id, usuarioService.lojaAtual(auth));
+        auditoria.registrar(usuarioService.atual(auth), "ARQUIVAR", "PRODUTO", id, null);
         return ResponseEntity.noContent().build();
     }
 
@@ -116,6 +133,7 @@ public class ProdutoController {
     @PutMapping("/{id}/restaurar")
     public ResponseEntity<Void> restaurarProduto(@PathVariable Long id, Authentication auth) {
         service.restaurar(id, usuarioService.lojaAtual(auth));
+        auditoria.registrar(usuarioService.atual(auth), "RESTAURAR", "PRODUTO", id, null);
         return ResponseEntity.ok().build();
     }
 

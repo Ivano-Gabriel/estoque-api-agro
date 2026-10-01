@@ -64,6 +64,12 @@ public class ClienteService {
         cliente.setAtivo(false);
     }
 
+    @Transactional
+    public void anonimizar(Long id, Loja loja) {
+        Cliente cliente = entidade(id, loja);
+        cliente.anonimizar();
+    }
+
     @Transactional(readOnly = true)
     public Cliente entidadeOpcional(Long id, Loja loja) {
         if (id == null) return null;

@@ -23,8 +23,9 @@ public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
     @Query("SELECT SUM(t.valorTotal) FROM Transacao t WHERE t.loja.id = :lojaId AND t.tipo = :tipo AND t.estornada = false")
     BigDecimal sumValorTotalByTipo(@Param("lojaId") Long lojaId, @Param("tipo") String tipo);
 
-    @Query("SELECT SUM(t.lucro) FROM Transacao t WHERE t.loja.id = :lojaId AND t.tipo = 'VENDA' AND t.estornada = false")
-    BigDecimal sumLucroVendas(@Param("lojaId") Long lojaId);
+    @Query("SELECT SUM(t.lucro) FROM Transacao t WHERE t.loja.id = :lojaId "
+            + "AND t.tipo IN ('VENDA','DEVOLUCAO') AND t.estornada = false")
+    BigDecimal sumLucroOperacional(@Param("lojaId") Long lojaId);
     
     List<Transacao> findTop10ByLojaIdOrderByDataDesc(Long lojaId);
 
@@ -42,4 +43,9 @@ public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
             + "WHERE t.loja.id = :lojaId AND t.tipo = 'VENDA' AND t.estornada = false "
             + "GROUP BY t.formaPagamento")
     List<Object[]> somarVendasPorForma(@Param("lojaId") Long lojaId);
+
+    @Query("SELECT t.formaPagamento, COALESCE(SUM(t.valorTotal), 0) FROM Transacao t "
+            + "WHERE t.loja.id = :lojaId AND t.tipo = 'VENDA' AND t.estornada = false "
+            + "AND t.venda IS NULL GROUP BY t.formaPagamento")
+    List<Object[]> somarVendasLegadasPorForma(@Param("lojaId") Long lojaId);
 }

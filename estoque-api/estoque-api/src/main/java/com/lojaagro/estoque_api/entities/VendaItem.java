@@ -46,6 +46,11 @@ public class VendaItem {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal total;
 
+    @Column(name="quantidade_devolvida",nullable=false,columnDefinition="integer default 0")
+    private int quantidadeDevolvida;
+    @Column(name="valor_devolvido",nullable=false,precision=19,scale=2,columnDefinition="numeric(19,2) default 0")
+    private BigDecimal valorDevolvido = BigDecimal.ZERO.setScale(2);
+
     protected VendaItem() {}
 
     public VendaItem(Venda venda, Produto produto, int quantidade, BigDecimal precoUnitario,
@@ -78,4 +83,20 @@ public class VendaItem {
     public BigDecimal getSubtotal() { return subtotal; }
     public BigDecimal getDescontoRateado() { return descontoRateado; }
     public BigDecimal getTotal() { return total; }
+    public int getQuantidadeDevolvida() { return quantidadeDevolvida; }
+    public int getQuantidadeDisponivelParaDevolucao() { return quantidade - quantidadeDevolvida; }
+    public BigDecimal calcularDevolucao(int quantidade) {
+        if (quantidade <= 0 || quantidade > getQuantidadeDisponivelParaDevolucao())
+            throw new IllegalArgumentException("Quantidade de devolução inválida para " + nomeProduto + ".");
+        if (quantidade == getQuantidadeDisponivelParaDevolucao())
+            return total.subtract(valorDevolvido).setScale(2, RoundingMode.HALF_UP);
+        return total.multiply(BigDecimal.valueOf(quantidade))
+                .divide(BigDecimal.valueOf(this.quantidade), 2, RoundingMode.HALF_UP);
+    }
+    public void registrarDevolucao(int quantidade, BigDecimal valor) {
+        calcularDevolucao(quantidade);
+        quantidadeDevolvida += quantidade;
+        valorDevolvido = valorDevolvido.add(valor).setScale(2, RoundingMode.HALF_UP);
+    }
+    public BigDecimal getValorDevolvido(){return valorDevolvido;}
 }

@@ -43,3 +43,22 @@ Este arquivo registra as decisões de produto combinadas em 24/09/2026. O sistem
 - Funcionária opera; administradora configura, consulta finanças e cancela.
 - Ações financeiras e de estoque devem ser atômicas, idempotentes e auditáveis.
 - Comprovante não fiscal deve ser identificado como tal; emissão fiscal só entra com integração fiscal própria e validação contábil.
+# Estado da evolução (outubro de 2026)
+
+## Entregue na base de endurecimento
+
+- Migrações Flyway e Hibernate somente em validação.
+- Bootstrap de administradores sem escolher loja implicitamente.
+- Permissões por perfil, auditoria e MFA do superadministrador.
+- Caixa por operadora com abertura, sangria, suprimento, fechamento e conferência.
+- SKU, código de barras, variações e estoque mínimo por produto.
+- Pagamentos divididos, trocas/devoluções parciais e histórico paginado.
+- CI de backend/frontend, limpeza de fotos substituídas e documentos-base de LGPD.
+
+## Próxima etapa controlada
+
+1. Importação XML de NF-e com conferência assistida.
+2. Leitura de código de barras por câmera/leitor e inventário físico.
+3. Modo lanchonete ativável: cardápio, adicionais, comandas, mesas, cozinha e impressão de pedidos.
+
+O modo lanchonete só deve ser habilitado depois que o deploy de endurecimento estiver migrado, testado e estável no banco real.

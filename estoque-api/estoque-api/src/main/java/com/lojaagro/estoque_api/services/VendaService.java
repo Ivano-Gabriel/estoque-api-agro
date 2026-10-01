@@ -6,6 +6,7 @@ import com.lojaagro.estoque_api.entities.*;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import com.lojaagro.estoque_api.repositories.VendaRepository;
+import com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -27,10 +28,15 @@ public class VendaService {
     private final FluxoCaixaService caixa;
     private final ClienteService clientes;
     private final Clock clock;
+    private final CaixaOperacionalService caixaOperacional;
+    private final AuditoriaService auditoria;
+    private final DevolucaoVendaRepository devolucoes;
 
     public VendaService(VendaRepository vendas, ProdutoRepository produtos,
                         TransacaoRepository transacoes, TransacaoService transacaoService,
-                        FluxoCaixaService caixa, ClienteService clientes, Clock clock) {
+                        FluxoCaixaService caixa, ClienteService clientes, Clock clock,
+                        CaixaOperacionalService caixaOperacional, AuditoriaService auditoria,
+                        DevolucaoVendaRepository devolucoes) {
         this.vendas = vendas;
         this.produtos = produtos;
         this.transacoes = transacoes;
@@ -38,6 +44,9 @@ public class VendaService {
         this.caixa = caixa;
         this.clientes = clientes;
         this.clock = clock;
+        this.caixaOperacional = caixaOperacional;
+        this.auditoria = auditoria;
+        this.devolucoes = devolucoes;
     }
 
     @Transactional
@@ -86,27 +95,29 @@ public class VendaService {
         }
 
         boolean financeiro = loja.isFinanceiroAtivo();
-        FormaPagamento forma = financeiro ? request.formaPagamento() : FormaPagamento.NAO_INFORMADO;
         BigDecimal desconto = financeiro ? normalizar(request.desconto()) : ZERO;
-        if (financeiro && (forma == null || forma == FormaPagamento.NAO_INFORMADO)) {
-            throw new IllegalArgumentException("Selecione como o cliente pagou.");
-        }
         if (financeiro && desconto.compareTo(subtotal) >= 0) {
             throw new IllegalArgumentException("O desconto deve ser menor que o subtotal da venda.");
         }
         BigDecimal total = financeiro ? subtotal.subtract(desconto).setScale(2) : ZERO;
+        List<PagamentoCalculado> pagamentos = calcularPagamentos(request, financeiro, total);
+        FormaPagamento forma = !financeiro ? FormaPagamento.NAO_INFORMADO
+                : pagamentos.size() == 1 ? pagamentos.getFirst().forma() : FormaPagamento.MULTIPLO;
         BigDecimal recebido = null;
         BigDecimal troco = null;
-        if (financeiro && forma == FormaPagamento.DINHEIRO) {
+        BigDecimal parcelaDinheiro = pagamentos.stream().filter(p -> p.forma() == FormaPagamento.DINHEIRO)
+                .map(PagamentoCalculado::valor).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2);
+        if (financeiro && parcelaDinheiro.signum() > 0) {
             recebido = normalizar(request.valorRecebido());
-            if (recebido.compareTo(total) < 0) {
-                throw new IllegalArgumentException("O valor recebido é menor que o total da venda.");
+            if (recebido.compareTo(parcelaDinheiro) < 0) {
+                throw new IllegalArgumentException("O valor recebido é menor que a parte paga em dinheiro.");
             }
-            troco = recebido.subtract(total).setScale(2);
+            troco = recebido.subtract(parcelaDinheiro).setScale(2);
         }
 
         Venda venda = new Venda(chave, loja, usuario, cliente, assinatura, forma,
                 financeiro ? subtotal : ZERO, desconto, total, recebido, troco, LocalDateTime.now(clock));
+        pagamentos.forEach(p -> venda.adicionarPagamento(new PagamentoVenda(venda, p.forma(), p.valor())));
         BigDecimal descontoDistribuido = ZERO;
         for (int indice = 0; indice < linhas.size(); indice++) {
             Linha linha = linhas.get(indice);
@@ -129,7 +140,12 @@ public class VendaService {
                     item.getPrecoUnitario(), item.getTotal(), item.getCustoUnitario(), lucro,
                     "Venda PDV " + venda.getId(), cliente, venda, forma);
         }
-        if (financeiro) caixa.adicionarEntrada(loja.getId(), total);
+        if (financeiro) {
+            caixa.adicionarEntrada(loja.getId(), total);
+            caixaOperacional.registrarVenda(usuario, venda, total, parcelaDinheiro);
+        }
+        auditoria.registrar(usuario, "CONCLUIR", "VENDA", venda.getId(),
+                "Itens: " + venda.getItens().size() + " • Total: " + total);
         return VendaResponse.de(venda);
     }
 
@@ -137,6 +153,23 @@ public class VendaService {
     public List<VendaResponse> listar(Loja loja) {
         return vendas.findTop50ByLojaIdOrderByCriadaEmDesc(loja.getId()).stream()
                 .map(VendaResponse::de).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public com.lojaagro.estoque_api.dto.PaginaResponse<VendaResponse> pesquisar(
+            Loja loja, int pagina, int tamanho, LocalDateTime inicio, LocalDateTime fim,
+            StatusVenda status, String busca) {
+        int limite = Math.min(100, Math.max(1, tamanho));
+        var paginaIds = vendas.buscarIds(loja.getId(), inicio, fim, status,
+                busca == null ? "" : busca.trim(), org.springframework.data.domain.PageRequest.of(
+                        Math.max(0, pagina), limite,
+                        org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "criadaEm")));
+        Map<UUID, Venda> porId = vendas.buscarDetalhes(paginaIds.getContent()).stream()
+                .collect(java.util.stream.Collectors.toMap(Venda::getId, v -> v));
+        List<VendaResponse> conteudo = paginaIds.getContent().stream().map(porId::get)
+                .filter(Objects::nonNull).map(VendaResponse::de).toList();
+        return new com.lojaagro.estoque_api.dto.PaginaResponse<>(conteudo, paginaIds.getNumber(),
+                paginaIds.getSize(), paginaIds.getTotalElements(), paginaIds.getTotalPages(), paginaIds.isLast());
     }
 
     @Transactional
@@ -148,6 +181,9 @@ public class VendaService {
         if (venda.getStatus() == StatusVenda.CANCELADA) {
             throw new IllegalArgumentException("Esta venda já foi cancelada.");
         }
+        if (venda.getTotalDevolvido().signum() > 0) {
+            throw new IllegalArgumentException("Venda com devolução não pode ser cancelada. Devolva apenas os itens restantes.");
+        }
         for (VendaItem item : venda.getItens()) {
             Produto produto = produtos.findByIdAndLojaId(item.getProduto().getId(), loja.getId())
                     .orElseThrow(() -> new IllegalArgumentException("Produto da venda não foi encontrado."));
@@ -156,9 +192,67 @@ public class VendaService {
         transacoes.findByVendaId(id).forEach(transacao -> transacao.setEstornada(true));
         if (venda.getTotal().compareTo(BigDecimal.ZERO) > 0) {
             caixa.estornarEntrada(loja.getId(), venda.getTotal());
+            BigDecimal dinheiro = venda.getPagamentos().stream()
+                    .filter(p -> p.getForma() == FormaPagamento.DINHEIRO).map(PagamentoVenda::getValor)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2);
+            caixaOperacional.registrarEstorno(responsavel, venda, venda.getTotal(), dinheiro);
         }
         venda.cancelar(responsavel, motivo, LocalDateTime.now(clock));
+        auditoria.registrar(responsavel, "CANCELAR", "VENDA", venda.getId(),
+                "Total estornado: " + venda.getTotal() + " • Motivo: " + motivo);
         return VendaResponse.de(venda);
+    }
+
+    @Transactional
+    public com.lojaagro.estoque_api.dto.DevolucaoVendaResponse devolver(
+            UUID vendaId, com.lojaagro.estoque_api.dto.DevolucaoVendaRequest request, Usuario responsavel) {
+        Loja loja = exigirLoja(responsavel);
+        caixa.bloquearOperacoes(loja.getId());
+        Venda venda = vendas.bloquearPorIdELoja(vendaId, loja.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Venda não encontrada nesta loja."));
+        if (venda.getStatus() == StatusVenda.CANCELADA || venda.getStatus() == StatusVenda.DEVOLVIDA)
+            throw new IllegalArgumentException("Esta venda não aceita novas devoluções.");
+        if (request.formaReembolso() == FormaPagamento.NAO_INFORMADO
+                || request.formaReembolso() == FormaPagamento.MULTIPLO)
+            throw new IllegalArgumentException("Informe uma forma de reembolso válida.");
+        Set<Long> ids = new HashSet<>();
+        DevolucaoVenda devolucao = new DevolucaoVenda(loja, venda, responsavel,
+                request.formaReembolso(), request.motivo(), LocalDateTime.now(clock));
+        for (var solicitado : request.itens()) {
+            if (!ids.add(solicitado.vendaItemId()))
+                throw new IllegalArgumentException("Item repetido na devolução.");
+            VendaItem item = venda.getItens().stream().filter(i -> i.getId().equals(solicitado.vendaItemId()))
+                    .findFirst().orElseThrow(() -> new IllegalArgumentException("Item não pertence a esta venda."));
+            BigDecimal valor = item.calcularDevolucao(solicitado.quantidade());
+            Produto produto = produtos.findByIdAndLojaId(item.getProduto().getId(), loja.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Produto da venda não foi encontrado."));
+            produto.reporSemCusto(solicitado.quantidade());
+            item.registrarDevolucao(solicitado.quantidade(), valor);
+            devolucao.adicionar(new DevolucaoVendaItem(devolucao, item, solicitado.quantidade(), valor));
+            BigDecimal custo = item.getCustoUnitario().multiply(BigDecimal.valueOf(solicitado.quantidade())).setScale(2);
+            BigDecimal lucroEstornado = valor.subtract(custo).negate().setScale(2);
+            transacaoService.registrarTransacao(produto, responsavel, "DEVOLUCAO", solicitado.quantidade(),
+                    valor.divide(BigDecimal.valueOf(solicitado.quantidade()), 2, RoundingMode.HALF_UP), valor,
+                    item.getCustoUnitario(), lucroEstornado, "Devolução da venda " + venda.getId(),
+                    venda.getCliente(), venda, request.formaReembolso());
+        }
+        if (devolucao.getValor().signum() <= 0) throw new IllegalArgumentException("Devolução sem valor.");
+        venda.registrarDevolucao(devolucao.getValor());
+        devolucoes.save(devolucao);
+        caixa.estornarEntrada(loja.getId(), devolucao.getValor());
+        caixaOperacional.registrarEstorno(responsavel, venda, devolucao.getValor(),
+                request.formaReembolso() == FormaPagamento.DINHEIRO ? devolucao.getValor() : ZERO);
+        auditoria.registrar(responsavel, "DEVOLVER", "VENDA", venda.getId(),
+                "Valor: " + devolucao.getValor() + " • Motivo: " + request.motivo());
+        return com.lojaagro.estoque_api.dto.DevolucaoVendaResponse.de(devolucao);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.lojaagro.estoque_api.dto.DevolucaoVendaResponse> listarDevolucoes(UUID vendaId, Loja loja) {
+        vendas.findByIdAndLojaId(vendaId, loja.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Venda não encontrada nesta loja."));
+        return devolucoes.findByVendaIdOrderByCriadaEmDesc(vendaId).stream()
+                .map(com.lojaagro.estoque_api.dto.DevolucaoVendaResponse::de).toList();
     }
 
     private Loja exigirLoja(Usuario usuario) {
@@ -181,7 +275,10 @@ public class VendaService {
         try {
             String itens = request.itens().stream()
                     .map(item -> item.produtoId() + ":" + item.quantidade()).reduce((a, b) -> a + "," + b).orElse("");
-            String valor = String.valueOf(request.clienteId()) + "|" + request.formaPagamento() + "|"
+            String pagamentos = request.pagamentos() == null ? String.valueOf(request.formaPagamento())
+                    : request.pagamentos().stream().map(p -> p.forma() + ":" + normalizar(p.valor()))
+                    .reduce((a, b) -> a + "," + b).orElse("");
+            String valor = String.valueOf(request.clienteId()) + "|" + pagamentos + "|"
                     + normalizar(request.desconto()) + "|" + normalizar(request.valorRecebido()) + "|" + itens;
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(valor.getBytes(StandardCharsets.UTF_8));
             return java.util.HexFormat.of().formatHex(hash);
@@ -194,5 +291,33 @@ public class VendaService {
         return (valor == null ? BigDecimal.ZERO : valor).setScale(2, RoundingMode.HALF_UP);
     }
 
+    private List<PagamentoCalculado> calcularPagamentos(VendaRequest request, boolean financeiro, BigDecimal total) {
+        if (!financeiro) return List.of(new PagamentoCalculado(FormaPagamento.NAO_INFORMADO, ZERO));
+        List<PagamentoCalculado> resultado = new ArrayList<>();
+        if (request.pagamentos() != null && !request.pagamentos().isEmpty()) {
+            Set<FormaPagamento> formas = new HashSet<>();
+            for (VendaRequest.Pagamento pagamento : request.pagamentos()) {
+                if (pagamento.forma() == FormaPagamento.NAO_INFORMADO || pagamento.forma() == FormaPagamento.MULTIPLO)
+                    throw new IllegalArgumentException("Forma de pagamento inválida.");
+                if (!formas.add(pagamento.forma()))
+                    throw new IllegalArgumentException("Cada forma de pagamento deve aparecer apenas uma vez.");
+                BigDecimal valor = normalizar(pagamento.valor());
+                if (valor.signum() <= 0) throw new IllegalArgumentException("Pagamento deve ser maior que zero.");
+                resultado.add(new PagamentoCalculado(pagamento.forma(), valor));
+            }
+        } else {
+            FormaPagamento forma = request.formaPagamento();
+            if (forma == null || forma == FormaPagamento.NAO_INFORMADO || forma == FormaPagamento.MULTIPLO)
+                throw new IllegalArgumentException("Selecione como o cliente pagou.");
+            resultado.add(new PagamentoCalculado(forma, total));
+        }
+        BigDecimal soma = resultado.stream().map(PagamentoCalculado::valor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2);
+        if (soma.compareTo(total) != 0)
+            throw new IllegalArgumentException("A soma dos pagamentos deve ser igual ao total da venda.");
+        return List.copyOf(resultado);
+    }
+
     private record Linha(Produto produto, int quantidade, BigDecimal preco, BigDecimal subtotal) {}
+    private record PagamentoCalculado(FormaPagamento forma, BigDecimal valor) {}
 }

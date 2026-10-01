@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.context.ApplicationEventPublisher;
 
 @Service
 public class ProdutoService {
@@ -21,10 +22,14 @@ public class ProdutoService {
     private final TransacaoService transacoes;
     private final FluxoCaixaService caixa;
     private final CategoriaRepository categorias;
+    private final CloudinaryAssinaturaService cloudinary;
+    private final ApplicationEventPublisher eventos;
 
     public ProdutoService(ProdutoRepository produtos, TransacaoService transacoes,
-                          FluxoCaixaService caixa, CategoriaRepository categorias) {
+                          FluxoCaixaService caixa, CategoriaRepository categorias,
+                          CloudinaryAssinaturaService cloudinary, ApplicationEventPublisher eventos) {
         this.produtos = produtos; this.transacoes = transacoes; this.caixa = caixa; this.categorias = categorias;
+        this.cloudinary = cloudinary; this.eventos = eventos;
     }
 
     public List<Produto> buscarTodos(Loja loja) { return produtos.findByLojaIdAndAtivoTrue(loja.getId()); }
@@ -36,12 +41,13 @@ public class ProdutoService {
     public Produto criar(ProdutoRequest request, Loja loja) {
         caixa.bloquearOperacoes(loja.getId());
         validarValoresFinanceiros(request, loja);
-        validarDuplicado(loja, request.nome(), request.categoria().nome(), null);
+        validarDuplicado(loja, request, null);
         Categoria categoria = obterOuCriarCategoria(loja, request.categoria().nome());
         Produto produto = new Produto();
         produto.setLoja(loja);
         produto.atualizarDados(request.nome(), request.tipo(), request.preco(), request.dataValidade(),
-                categoria, request.descricao(), validarImagem(request.imagemUrl(), loja));
+                categoria, request.descricao(), validarImagem(request.imagemUrl(), loja),
+                request.sku(), request.codigoBarras(), request.variacao(), request.estoqueMinimoSeguro());
         produto.inicializarEstoque(request.quantidadeEstoque(), request.custoUnitario());
         return produtos.save(produto);
     }
@@ -50,14 +56,19 @@ public class ProdutoService {
     public Produto atualizar(Long id, ProdutoRequest request, Loja loja) {
         caixa.bloquearOperacoes(loja.getId());
         validarValoresFinanceiros(request, loja);
-        validarDuplicado(loja, request.nome(), request.categoria().nome(), id);
+        validarDuplicado(loja, request, id);
         Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(id, loja.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
+        String imagemAnterior = produto.getImagemUrl();
         Categoria categoria = obterOuCriarCategoria(loja, request.categoria().nome());
         produto.atualizarDados(request.nome(), request.tipo(), request.preco(),
                 request.dataValidade() == null ? produto.getDataValidade() : request.dataValidade(),
-                categoria, request.descricao(), validarImagem(request.imagemUrl(), loja));
-        return produtos.save(produto);
+                categoria, request.descricao(), validarImagem(request.imagemUrl(), loja),
+                request.sku(), request.codigoBarras(), request.variacao(), request.estoqueMinimoSeguro());
+        Produto salvo = produtos.save(produto);
+        if (imagemAnterior != null && !imagemAnterior.equals(salvo.getImagemUrl()))
+            eventos.publishEvent(new CloudinaryAssinaturaService.ImagemRemovidaEvento(imagemAnterior));
+        return salvo;
     }
 
     @Transactional
@@ -107,7 +118,10 @@ public class ProdutoService {
         caixa.bloquearOperacoes(loja.getId());
         Produto produto = produtos.findByIdAndLojaId(id, loja.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado."));
-        validarDuplicado(loja, produto.getNome(), produto.getCategoria().getNome(), id);
+        if (produtos.contarDuplicados(loja.getId(), produto.getNome(), produto.getCategoria().getNome(),
+                produto.getVariacao(), id) > 0) {
+            throw new IllegalArgumentException("Já existe um produto igual no catálogo.");
+        }
         produto.setAtivo(true);
         produtos.save(produto);
     }
@@ -120,9 +134,19 @@ public class ProdutoService {
                 .orElseGet(() -> categorias.save(new Categoria(normalizado, loja)));
     }
 
-    private void validarDuplicado(Loja loja, String nome, String categoria, Long ignorarId) {
-        if (produtos.contarDuplicados(loja.getId(), nome, categoria, ignorarId) > 0) {
-            throw new IllegalArgumentException("Já existe um produto com esse nome e categoria nesta loja, inclusive na lixeira.");
+    private void validarDuplicado(Loja loja, ProdutoRequest request, Long ignorarId) {
+        if (produtos.contarDuplicados(loja.getId(), request.nome(), request.categoria().nome(),
+                request.variacao(), ignorarId) > 0) {
+            throw new IllegalArgumentException(
+                    "Já existe um produto com esse nome, categoria e variação nesta loja, inclusive na lixeira.");
+        }
+        if (request.sku() != null && !request.sku().isBlank()
+                && produtos.contarSku(loja.getId(), request.sku().trim(), ignorarId) > 0) {
+            throw new IllegalArgumentException("SKU já utilizado por outro produto desta loja.");
+        }
+        if (request.codigoBarras() != null && !request.codigoBarras().isBlank()
+                && produtos.contarCodigoBarras(loja.getId(), request.codigoBarras().trim(), ignorarId) > 0) {
+            throw new IllegalArgumentException("Código de barras já utilizado por outro produto desta loja.");
         }
     }
 
@@ -137,7 +161,7 @@ public class ProdutoService {
         if (!loja.isFotosAtivas()) {
             throw new IllegalArgumentException("O módulo de fotos não está ativo para esta loja.");
         }
-        return imagemUrl.trim();
+        return cloudinary.validarUrl(imagemUrl, loja);
     }
 
     private BigDecimal exigirPositivo(BigDecimal valor, String campo) {

@@ -86,4 +86,12 @@ public class Cliente {
         produtosFavoritos.clear();
         produtosFavoritos.addAll(favoritos);
     }
+    public void anonimizar() {
+        nome = "Cliente removido #" + id;
+        telefone = null;
+        email = null;
+        observacoes = null;
+        produtosFavoritos.clear();
+        ativo = false;
+    }
 }

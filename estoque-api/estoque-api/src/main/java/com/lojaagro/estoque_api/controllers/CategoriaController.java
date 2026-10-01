@@ -15,10 +15,13 @@ public class CategoriaController {
 
     private final CategoriaService service;
     private final UsuarioService usuarios;
+    private final com.lojaagro.estoque_api.services.AuditoriaService auditoria;
 
-    public CategoriaController(CategoriaService service, UsuarioService usuarios) {
+    public CategoriaController(CategoriaService service, UsuarioService usuarios,
+                               com.lojaagro.estoque_api.services.AuditoriaService auditoria) {
         this.service = service;
         this.usuarios = usuarios;
+        this.auditoria = auditoria;
     }
 
     @GetMapping
@@ -36,7 +39,9 @@ public class CategoriaController {
     @PostMapping
     public ResponseEntity<Categoria> salvar(@jakarta.validation.Valid @RequestBody com.lojaagro.estoque_api.dto.CategoriaRequest categoria,
                                             Authentication auth) {
-        return ResponseEntity.ok(service.salvar(categoria.nome(), usuarios.lojaAtual(auth)));
+        Categoria salva = service.salvar(categoria.nome(), usuarios.lojaAtual(auth));
+        auditoria.registrar(usuarios.atual(auth), "CRIAR", "CATEGORIA", salva.getId(), salva.getNome());
+        return ResponseEntity.ok(salva);
     }
 
 

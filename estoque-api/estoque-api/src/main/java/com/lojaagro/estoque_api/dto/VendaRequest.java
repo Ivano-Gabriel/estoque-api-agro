@@ -13,15 +13,27 @@ import java.util.List;
 
 public record VendaRequest(
         Long clienteId,
-        @NotNull(message = "Informe a forma de pagamento.") FormaPagamento formaPagamento,
+        FormaPagamento formaPagamento,
         @DecimalMin(value = "0.00", message = "O desconto não pode ser negativo.") BigDecimal desconto,
         @DecimalMin(value = "0.00", message = "O valor recebido não pode ser negativo.") BigDecimal valorRecebido,
         @NotEmpty(message = "Adicione pelo menos um produto à venda.")
         @Size(max = 100, message = "Uma venda pode ter no máximo 100 produtos diferentes.")
-        List<@Valid Item> itens) {
+        List<@Valid Item> itens,
+        @Size(max = 5, message = "Use no máximo cinco formas de pagamento.")
+        List<@Valid Pagamento> pagamentos) {
+
+    public VendaRequest(Long clienteId, FormaPagamento formaPagamento, BigDecimal desconto,
+                        BigDecimal valorRecebido, List<Item> itens) {
+        this(clienteId, formaPagamento, desconto, valorRecebido, itens, null);
+    }
 
     public record Item(
             @NotNull(message = "Produto é obrigatório.") Long produtoId,
             @Min(value = 1, message = "A quantidade deve ser no mínimo 1.")
             @Max(value = 1000000, message = "Quantidade acima do limite permitido.") int quantidade) {}
+
+    public record Pagamento(
+            @NotNull(message = "Forma de pagamento é obrigatória.") FormaPagamento forma,
+            @NotNull @DecimalMin(value = "0.01", message = "Valor do pagamento deve ser maior que zero.")
+            BigDecimal valor) {}
 }

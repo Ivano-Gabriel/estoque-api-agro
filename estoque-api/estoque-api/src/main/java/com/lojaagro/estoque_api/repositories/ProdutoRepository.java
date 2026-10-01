@@ -19,9 +19,18 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     @Query("SELECT COUNT(p) FROM Produto p WHERE LOWER(TRIM(p.nome)) = LOWER(TRIM(:nome)) "
             + "AND LOWER(TRIM(p.categoria.nome)) = LOWER(TRIM(:categoria)) "
+            + "AND LOWER(COALESCE(TRIM(p.variacao), '')) = LOWER(COALESCE(TRIM(:variacao), '')) "
             + "AND p.loja.id = :lojaId "
             + "AND (:ignorarId IS NULL OR p.id <> :ignorarId)")
-    long contarDuplicados(Long lojaId, String nome, String categoria, Long ignorarId);
+    long contarDuplicados(Long lojaId, String nome, String categoria, String variacao, Long ignorarId);
+
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.loja.id = :lojaId "
+            + "AND LOWER(p.sku) = LOWER(:sku) AND (:ignorarId IS NULL OR p.id <> :ignorarId)")
+    long contarSku(Long lojaId, String sku, Long ignorarId);
+
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.loja.id = :lojaId "
+            + "AND LOWER(p.codigoBarras) = LOWER(:codigo) AND (:ignorarId IS NULL OR p.id <> :ignorarId)")
+    long contarCodigoBarras(Long lojaId, String codigo, Long ignorarId);
 
     // Busca apenas os inativos (Lixeira) ignorando o filtro padrão
     List<Produto> findByLojaIdAndAtivoFalse(Long lojaId);
@@ -51,10 +60,12 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     long countByLojaIdAndAtivoTrue(Long lojaId);
 
     // 2. Conta quantos produtos estão com 5 ou menos no estoque
-    @Query("SELECT COUNT(p) FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true AND p.quantidadeEstoque <= 5")
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true "
+            + "AND p.quantidadeEstoque <= p.estoqueMinimo")
     long contarEstoqueCritico(Long lojaId);
 
-    @Query("SELECT p FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true AND p.quantidadeEstoque <= 5 "
+    @Query("SELECT p FROM Produto p WHERE p.loja.id = :lojaId AND p.ativo = true "
+            + "AND p.quantidadeEstoque <= p.estoqueMinimo "
             + "ORDER BY p.quantidadeEstoque ASC, p.nome ASC")
     List<Produto> buscarEstoqueCritico(Long lojaId);
 

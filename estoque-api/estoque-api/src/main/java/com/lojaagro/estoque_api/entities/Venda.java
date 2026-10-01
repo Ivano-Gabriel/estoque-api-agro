@@ -41,7 +41,7 @@ public class Venda {
     private FormaPagamento formaPagamento;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private StatusVenda status = StatusVenda.CONCLUIDA;
 
     @Column(nullable = false, precision = 19, scale = 2)
@@ -52,6 +52,9 @@ public class Venda {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal total;
+
+    @Column(name="total_devolvido",nullable=false,precision=19,scale=2,columnDefinition="numeric(19,2) default 0")
+    private BigDecimal totalDevolvido = BigDecimal.ZERO.setScale(2);
 
     @Column(name = "valor_recebido", precision = 19, scale = 2)
     private BigDecimal valorRecebido;
@@ -81,6 +84,10 @@ public class Venda {
     @OrderBy("id ASC")
     private List<VendaItem> itens = new ArrayList<>();
 
+    @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private List<PagamentoVenda> pagamentos = new ArrayList<>();
+
     protected Venda() {}
 
     public Venda(UUID id, Loja loja, Usuario usuario, Cliente cliente, String assinatura,
@@ -101,14 +108,25 @@ public class Venda {
     }
 
     public void adicionarItem(VendaItem item) { itens.add(item); }
+    public void adicionarPagamento(PagamentoVenda pagamento) { pagamentos.add(pagamento); }
 
     public void cancelar(Usuario responsavel, String motivo, LocalDateTime momento) {
         if (status == StatusVenda.CANCELADA) throw new IllegalArgumentException("Esta venda já foi cancelada.");
+        if (totalDevolvido.signum() > 0) throw new IllegalArgumentException("Venda com devolução deve ser finalizada pelas devoluções restantes.");
         if (motivo == null || motivo.isBlank()) throw new IllegalArgumentException("Informe o motivo do cancelamento.");
         status = StatusVenda.CANCELADA;
         canceladaPor = responsavel;
         motivoCancelamento = motivo.trim();
         canceladaEm = momento;
+    }
+
+    public void registrarDevolucao(BigDecimal valor) {
+        if (status == StatusVenda.CANCELADA || status == StatusVenda.DEVOLVIDA)
+            throw new IllegalArgumentException("Venda não aceita novas devoluções.");
+        BigDecimal novo = totalDevolvido.add(normalizar(valor));
+        if (novo.compareTo(total) > 0) throw new IllegalArgumentException("Devolução ultrapassa o total da venda.");
+        totalDevolvido = novo;
+        status = totalDevolvido.compareTo(total) == 0 ? StatusVenda.DEVOLVIDA : StatusVenda.PARCIALMENTE_DEVOLVIDA;
     }
 
     private BigDecimal normalizar(BigDecimal valor) {
@@ -125,6 +143,8 @@ public class Venda {
     public BigDecimal getSubtotal() { return subtotal; }
     public BigDecimal getDesconto() { return desconto; }
     public BigDecimal getTotal() { return total; }
+    public BigDecimal getTotalDevolvido() { return totalDevolvido; }
+    public BigDecimal getTotalLiquido() { return total.subtract(totalDevolvido).setScale(2, RoundingMode.HALF_UP); }
     public BigDecimal getValorRecebido() { return valorRecebido; }
     public BigDecimal getTroco() { return troco; }
     public LocalDateTime getCriadaEm() { return criadaEm; }
@@ -132,4 +152,5 @@ public class Venda {
     public Usuario getCanceladaPor() { return canceladaPor; }
     public String getMotivoCancelamento() { return motivoCancelamento; }
     public List<VendaItem> getItens() { return itens; }
+    public List<PagamentoVenda> getPagamentos() { return pagamentos; }
 }
