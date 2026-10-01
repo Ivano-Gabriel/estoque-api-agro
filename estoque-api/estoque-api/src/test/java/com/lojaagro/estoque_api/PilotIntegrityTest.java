@@ -47,6 +47,10 @@ class PilotIntegrityTest {
     @Autowired NotaRecebidaService notas;
     @Autowired VendaService vendas;
     @Autowired VendaRepository vendasRepo;
+    @Autowired DevolucaoVendaRepository devolucoesRepo;
+    @Autowired MovimentoCaixaRepository movimentosCaixaRepo;
+    @Autowired CaixaSessaoRepository sessoesCaixaRepo;
+    @Autowired AuditoriaRepository auditoriaRepo;
     @org.springframework.beans.factory.annotation.Value("${local.server.port}") int port;
     Usuario admin;
     Usuario funcionaria;
@@ -54,7 +58,8 @@ class PilotIntegrityTest {
     Loja loja;
 
     @BeforeEach void preparar() {
-        operacoes.deleteAll(); transacoes.deleteAll(); vendasRepo.deleteAll(); notasRepo.deleteAll(); clientesRepo.deleteAll();
+        movimentosCaixaRepo.deleteAll(); sessoesCaixaRepo.deleteAll(); devolucoesRepo.deleteAll();
+        auditoriaRepo.deleteAll(); operacoes.deleteAll(); transacoes.deleteAll(); vendasRepo.deleteAll(); notasRepo.deleteAll(); clientesRepo.deleteAll();
         produtoRepo.deleteAll(); categorias.deleteAll(); usuarios.deleteAll();
         FluxoCaixa caixa = caixas.findById(1L).orElseThrow();
         caixa.setTotalEntradas(BigDecimal.ZERO); caixa.setTotalSaidas(BigDecimal.ZERO); caixas.saveAndFlush(caixa);

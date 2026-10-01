@@ -72,7 +72,7 @@ public class ProdutoCadastroLoteService {
             validarImagem(request, loja, linha, erros);
 
             if (erros.size() == errosAntes) {
-                String chave = chaveProduto(request.nome(), request.categoria().nome());
+                String chave = chaveProduto(request.nome(), request.categoria().nome(), request.variacao());
                 if (!chaves.add(chave)) {
                     erros.add(new ImportacaoPlanilhaErro(
                             linha,
@@ -117,11 +117,11 @@ public class ProdutoCadastroLoteService {
     }
 
     private String chaveProduto(Produto produto) {
-        return chaveProduto(produto.getNome(), produto.getCategoria().getNome());
+        return chaveProduto(produto.getNome(), produto.getCategoria().getNome(), produto.getVariacao());
     }
 
-    private String chaveProduto(String nome, String categoria) {
-        return normalizar(nome) + "|" + normalizar(categoria);
+    private String chaveProduto(String nome, String categoria, String variacao) {
+        return normalizar(nome) + "|" + normalizar(categoria) + "|" + normalizar(variacao);
     }
 
     private String normalizar(String valor) {

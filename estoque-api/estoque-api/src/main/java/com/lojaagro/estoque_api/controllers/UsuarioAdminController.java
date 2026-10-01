@@ -22,8 +22,10 @@ public class UsuarioAdminController {
     private final UsuarioRepository usuarios;
     private final PasswordEncoder encoder;
     private final UsuarioService usuarioService;
-    public UsuarioAdminController(UsuarioRepository usuarios, PasswordEncoder encoder, UsuarioService usuarioService) {
-        this.usuarios = usuarios; this.encoder = encoder; this.usuarioService = usuarioService;
+    private final com.lojaagro.estoque_api.services.AuditoriaService auditoria;
+    public UsuarioAdminController(UsuarioRepository usuarios, PasswordEncoder encoder, UsuarioService usuarioService,
+                                  com.lojaagro.estoque_api.services.AuditoriaService auditoria) {
+        this.usuarios = usuarios; this.encoder = encoder; this.usuarioService = usuarioService; this.auditoria = auditoria;
     }
     public record Acesso(Long id, String email, boolean ativo) {}
     public record Estado(@NotNull Boolean ativo) {}
@@ -39,18 +41,20 @@ public class UsuarioAdminController {
     @PutMapping("/{id}/acesso")
     @Transactional
     public void alterarAcesso(@PathVariable Long id, @Valid @RequestBody Estado estado, Authentication auth) {
-        funcionaria(id, auth).setAtivo(estado.ativo());
+        Usuario alvo=funcionaria(id, auth); alvo.setAtivo(estado.ativo());
+        auditoria.registrar(usuarioService.atual(auth), estado.ativo()?"LIBERAR":"BLOQUEAR", "USUARIO", id, alvo.getEmail());
     }
 
     @PostMapping("/{id}/revogar-sessoes")
     @Transactional
-    public void revogar(@PathVariable Long id, Authentication auth) { funcionaria(id, auth).revogarSessoes(); }
+    public void revogar(@PathVariable Long id, Authentication auth) { Usuario alvo=funcionaria(id,auth); alvo.revogarSessoes(); auditoria.registrar(usuarioService.atual(auth),"REVOGAR_SESSOES","USUARIO",id,alvo.getEmail()); }
 
     @PutMapping("/{id}/senha")
     @Transactional
     public void trocarSenha(@PathVariable Long id, @Valid @RequestBody Senha senha, Authentication auth) {
         AuthController.validarSenha(senha.senha());
-        funcionaria(id, auth).setSenha(encoder.encode(senha.senha()));
+        Usuario alvo=funcionaria(id, auth); alvo.setSenha(encoder.encode(senha.senha()));
+        auditoria.registrar(usuarioService.atual(auth),"TROCAR_SENHA","USUARIO",id,alvo.getEmail());
     }
 
     private Usuario funcionaria(Long id, Authentication auth) {

@@ -17,11 +17,13 @@ public class PlatformAdminInitializer implements CommandLineRunner {
     private final PasswordEncoder encoder;
     private final String email;
     private final String senha;
+    private final com.lojaagro.estoque_api.security.TotpService totp;
 
     public PlatformAdminInitializer(UsuarioRepository usuarios, PasswordEncoder encoder,
             @Value("${app.platform-admin.email:}") String email,
-            @Value("${app.platform-admin.password:}") String senha) {
-        this.usuarios = usuarios; this.encoder = encoder; this.email = email; this.senha = senha;
+            @Value("${app.platform-admin.password:}") String senha,
+            com.lojaagro.estoque_api.security.TotpService totp) {
+        this.usuarios = usuarios; this.encoder = encoder; this.email = email; this.senha = senha; this.totp = totp;
     }
 
     @Override
@@ -29,6 +31,10 @@ public class PlatformAdminInitializer implements CommandLineRunner {
         if (email.isBlank() && senha.isBlank()) return;
         if (email.isBlank() || senha.isBlank()) {
             throw new IllegalStateException("PLATFORM_ADMIN_EMAIL e PLATFORM_ADMIN_PASSWORD devem ser configurados juntos.");
+        }
+        if (!totp.configurado()) {
+            throw new IllegalStateException(
+                    "PLATFORM_ADMIN_MFA_SECRET é obrigatório e deve ter ao menos 20 bytes em Base32.");
         }
         AuthController.validarSenha(senha);
         String normalizado = email.trim().toLowerCase(java.util.Locale.ROOT);
@@ -44,5 +50,11 @@ public class PlatformAdminInitializer implements CommandLineRunner {
             usuario.setSenha(encoder.encode(senha));
         }
         usuarios.save(usuario);
+        // A plataforma possui uma única conta de emergência configurada por ambiente.
+        // Trocar o e-mail no Render revoga automaticamente contas globais antigas.
+        java.util.List<Usuario> antigos = usuarios.findByRole(UsuarioRole.SUPER_ADMIN).stream()
+                .filter(outro -> !outro.getEmail().equals(normalizado))
+                .peek(outro -> outro.setAtivo(false)).toList();
+        usuarios.saveAll(antigos);
     }
 }

@@ -83,7 +83,8 @@ public class ProdutoImportacaoService {
             String[] cabecalhos = {
                     "Nome do produto", "Unidade de medida",
                     "Preço de venda (quanto cobrar)", "Preço de compra (quanto pagou)",
-                    "Quantidade inicial", "Categoria", "Data de validade"
+                    "Quantidade inicial", "Categoria", "Data de validade",
+                    "SKU / referência", "Código de barras", "Variação", "Estoque mínimo"
             };
 
             Font fonteCabecalho = workbook.createFont();
@@ -110,8 +111,12 @@ public class ProdutoImportacaoService {
             exemplo.createCell(4).setCellValue(10);
             exemplo.createCell(5).setCellValue("Rações");
             exemplo.createCell(6).setCellValue("31/12/2027");
+            exemplo.createCell(7).setCellValue("RAC-15KG-PREMIUM");
+            exemplo.createCell(8).setCellValue("7891234567890");
+            exemplo.createCell(9).setCellValue("Pacote 15kg");
+            exemplo.createCell(10).setCellValue(5);
 
-            int[] larguras = {32, 16, 18, 18, 14, 22, 18};
+            int[] larguras = {32, 16, 18, 18, 14, 22, 18, 24, 22, 24, 16};
             for (int coluna = 0; coluna < larguras.length; coluna++) {
                 produtos.setColumnWidth(coluna, larguras[coluna] * 256);
             }
@@ -126,8 +131,9 @@ public class ProdutoImportacaoService {
                     "3. Preço de venda é quanto o cliente pagará por uma unidade.",
                     "4. Preço de compra é quanto você pagou por uma unidade e é obrigatório quando existe estoque inicial.",
                     "5. Data de validade é opcional e deve usar DD/MM/AAAA.",
-                    "6. O limite é de 1.000 produtos por importação.",
-                    "7. Se alguma linha estiver errada, nenhum produto será cadastrado."
+                    "6. SKU, código de barras, variação e estoque mínimo são opcionais.",
+                    "7. O limite é de 1.000 produtos por importação.",
+                    "8. Se alguma linha estiver errada, nenhum produto será cadastrado."
             };
             for (int linha = 0; linha < textos.length; linha++) {
                 instrucoes.createRow(linha).createCell(0).setCellValue(textos[linha]);
@@ -187,8 +193,12 @@ public class ProdutoImportacaoService {
                 Integer quantidade = inteiro(row, colunas.quantidade(), "quantidade", numeroLinha, erros);
                 String categoria = texto(row, colunas.categoria(), "categoria", numeroLinha, erros, true);
                 LocalDate validade = data(row, colunas.validade(), numeroLinha, erros);
+                String sku = texto(row, colunas.sku(), "sku", numeroLinha, erros, false);
+                String codigoBarras = texto(row, colunas.codigoBarras(), "codigo_barras", numeroLinha, erros, false);
+                String variacao = texto(row, colunas.variacao(), "variacao", numeroLinha, erros, false);
+                Integer estoqueMinimo = inteiroOpcional(row, colunas.estoqueMinimo(), "estoque_minimo", numeroLinha, erros);
 
-                validarTamanhos(nome, tipo, categoria, numeroLinha, erros);
+                validarTamanhos(nome, tipo, categoria, sku, codigoBarras, variacao, numeroLinha, erros);
                 if (loja.isFinanceiroAtivo() && preco != null && preco.compareTo(BigDecimal.ZERO) <= 0) {
                     erros.add(new ImportacaoPlanilhaErro(numeroLinha, "preco_venda", "Deve ser maior que zero."));
                 }
@@ -206,7 +216,7 @@ public class ProdutoImportacaoService {
                 }
 
                 if (erros.size() == errosAntes && nome != null && categoria != null) {
-                    String chave = chaveProduto(nome, categoria);
+                    String chave = chaveProduto(nome, categoria, variacao);
                     if (!chaves.add(chave)) {
                         erros.add(new ImportacaoPlanilhaErro(
                                 numeroLinha, "nome", "Produto duplicado na planilha, no estoque ou na lixeira. Restaure o cadastro existente."));
@@ -223,7 +233,11 @@ public class ProdutoImportacaoService {
                             quantidade,
                             new CategoriaRequest(categoria),
                             null,
-                            null));
+                            null,
+                            sku,
+                            codigoBarras,
+                            variacao,
+                            estoqueMinimo == null ? 5 : estoqueMinimo));
                 }
             }
 
@@ -272,6 +286,10 @@ public class ProdutoImportacaoService {
         int quantidade = localizar(indices, "quantidade", "estoque", "quantidade_estoque", "quantidade_inicial");
         int categoria = localizar(indices, "categoria", "setor");
         int validade = localizar(indices, "data_validade", "validade", "data_de_validade");
+        int sku = localizar(indices, "sku", "referencia", "sku_referencia");
+        int codigoBarras = localizar(indices, "codigo_barras", "codigo_de_barras", "ean");
+        int variacao = localizar(indices, "variacao", "tamanho_cor", "cor_tamanho");
+        int estoqueMinimo = localizar(indices, "estoque_minimo", "minimo", "alerta_estoque");
 
         exigirColuna(nome, "nome", erros);
         if (financeiroAtivo) {
@@ -280,7 +298,8 @@ public class ProdutoImportacaoService {
         }
         exigirColuna(quantidade, "quantidade", erros);
         exigirColuna(categoria, "categoria", erros);
-        return new MapaColunas(nome, tipo, preco, custo, quantidade, categoria, validade);
+        return new MapaColunas(nome, tipo, preco, custo, quantidade, categoria, validade,
+                sku, codigoBarras, variacao, estoqueMinimo);
     }
 
     private void exigirColuna(int indice, String nome, List<ImportacaoPlanilhaErro> erros) {
@@ -364,6 +383,21 @@ public class ProdutoImportacaoService {
         }
     }
 
+    private Integer inteiroOpcional(Row row, int coluna, String campo, int linha,
+                                    List<ImportacaoPlanilhaErro> erros) {
+        if (coluna < 0 || row.getCell(coluna) == null || row.getCell(coluna).getCellType() == CellType.BLANK) return null;
+        BigDecimal valor = decimal(row, coluna, campo, linha, erros, false);
+        if (valor == null) return null;
+        try {
+            int inteiro = valor.intValueExact();
+            if (inteiro < 0) erros.add(new ImportacaoPlanilhaErro(linha, campo, "Não pode ser negativo."));
+            return inteiro;
+        } catch (ArithmeticException exception) {
+            erros.add(new ImportacaoPlanilhaErro(linha, campo, "Use um número inteiro."));
+            return null;
+        }
+    }
+
     private LocalDate data(Row row, int coluna, int linha,
                            List<ImportacaoPlanilhaErro> erros) {
         if (coluna < 0) return null;
@@ -399,7 +433,8 @@ public class ProdutoImportacaoService {
         return false;
     }
 
-    private void validarTamanhos(String nome, String tipo, String categoria, int linha,
+    private void validarTamanhos(String nome, String tipo, String categoria, String sku,
+                                 String codigoBarras, String variacao, int linha,
                                  List<ImportacaoPlanilhaErro> erros) {
         if (nome != null && nome.length() > 120) {
             erros.add(new ImportacaoPlanilhaErro(linha, "nome", "Máximo de 120 caracteres."));
@@ -410,6 +445,9 @@ public class ProdutoImportacaoService {
         if (categoria != null && categoria.length() > 80) {
             erros.add(new ImportacaoPlanilhaErro(linha, "categoria", "Máximo de 80 caracteres."));
         }
+        if (sku != null && sku.length() > 60) erros.add(new ImportacaoPlanilhaErro(linha, "sku", "Máximo de 60 caracteres."));
+        if (codigoBarras != null && !codigoBarras.matches("[0-9A-Za-z._-]{3,50}")) erros.add(new ImportacaoPlanilhaErro(linha, "codigo_barras", "Use de 3 a 50 letras ou números."));
+        if (variacao != null && variacao.length() > 120) erros.add(new ImportacaoPlanilhaErro(linha, "variacao", "Máximo de 120 caracteres."));
     }
 
     private boolean linhaVazia(Row row) {
@@ -421,11 +459,11 @@ public class ProdutoImportacaoService {
     }
 
     private String chaveProduto(Produto produto) {
-        return chaveProduto(produto.getNome(), produto.getCategoria().getNome());
+        return chaveProduto(produto.getNome(), produto.getCategoria().getNome(), produto.getVariacao());
     }
 
-    private String chaveProduto(String nome, String categoria) {
-        return normalizar(nome) + "|" + normalizar(categoria);
+    private String chaveProduto(String nome, String categoria, String variacao) {
+        return normalizar(nome) + "|" + normalizar(categoria) + "|" + normalizar(variacao);
     }
 
     private String normalizar(String valor) {
@@ -455,10 +493,14 @@ public class ProdutoImportacaoService {
             int custo,
             int quantidade,
             int categoria,
-            int validade) {
+            int validade,
+            int sku,
+            int codigoBarras,
+            int variacao,
+            int estoqueMinimo) {
 
         private static MapaColunas vazio() {
-            return new MapaColunas(-1, -1, -1, -1, -1, -1, -1);
+            return new MapaColunas(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
         }
     }
 }

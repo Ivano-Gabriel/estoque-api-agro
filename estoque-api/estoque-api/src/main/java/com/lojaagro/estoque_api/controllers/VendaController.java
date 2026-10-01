@@ -44,6 +44,19 @@ public class VendaController {
         return vendas.listar(usuarios.lojaAtual(auth));
     }
 
+    @GetMapping("/pagina")
+    @PreAuthorize("hasRole('ADMIN')")
+    public com.lojaagro.estoque_api.dto.PaginaResponse<VendaResponse> pesquisar(
+            @RequestParam(defaultValue="0") int pagina,
+            @RequestParam(defaultValue="25") int tamanho,
+            @RequestParam(required=false) java.time.LocalDateTime inicio,
+            @RequestParam(required=false) java.time.LocalDateTime fim,
+            @RequestParam(required=false) com.lojaagro.estoque_api.entities.StatusVenda status,
+            @RequestParam(defaultValue="") String busca,
+            Authentication auth) {
+        return vendas.pesquisar(usuarios.lojaAtual(auth),pagina,tamanho,inicio,fim,status,busca);
+    }
+
     @PutMapping("/{id}/cancelamento")
     @PreAuthorize("hasRole('ADMIN')")
     public VendaResponse cancelar(@PathVariable UUID id,
@@ -51,5 +64,22 @@ public class VendaController {
                                   Authentication auth) {
         Usuario responsavel = usuarios.atual(auth);
         return vendas.cancelar(id, request.motivo(), responsavel);
+    }
+
+    @PostMapping("/{id}/devolucoes")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    public com.lojaagro.estoque_api.dto.DevolucaoVendaResponse devolver(
+            @PathVariable UUID id,
+            @Valid @RequestBody com.lojaagro.estoque_api.dto.DevolucaoVendaRequest request,
+            Authentication auth) {
+        return vendas.devolver(id, request, usuarios.atual(auth));
+    }
+
+    @GetMapping("/{id}/devolucoes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public java.util.List<com.lojaagro.estoque_api.dto.DevolucaoVendaResponse> devolucoes(
+            @PathVariable UUID id, Authentication auth) {
+        return vendas.listarDevolucoes(id, usuarios.lojaAtual(auth));
     }
 }

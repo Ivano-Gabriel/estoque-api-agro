@@ -22,16 +22,22 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final com.lojaagro.estoque_api.security.LoginRateLimiter rateLimiter;
+    private final com.lojaagro.estoque_api.security.TotpService totp;
     private final String senhaInexistente;
+    private final com.lojaagro.estoque_api.services.AuditoriaService auditoria;
 
     public AuthController(UsuarioRepository repository, 
                           JwtUtil jwtUtil, 
                           PasswordEncoder passwordEncoder,
-                          com.lojaagro.estoque_api.security.LoginRateLimiter rateLimiter) {
+                          com.lojaagro.estoque_api.security.LoginRateLimiter rateLimiter,
+                          com.lojaagro.estoque_api.security.TotpService totp,
+                          com.lojaagro.estoque_api.services.AuditoriaService auditoria) {
         this.repository = repository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
         this.rateLimiter = rateLimiter;
+        this.totp = totp;
+        this.auditoria = auditoria;
         this.senhaInexistente = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
     }
 
@@ -57,6 +63,7 @@ public class AuthController {
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Sessão inválida."));
         usuario.setLoja(admin.getLoja());
         repository.save(usuario);
+        auditoria.registrar(admin, "CRIAR", "USUARIO", usuario.getId(), usuario.getEmail());
         return ResponseEntity.ok("Usuário registrado com sucesso!");
     }
 
@@ -72,6 +79,18 @@ public class AuthController {
                 || usuario.getLoja() != null && usuario.getLoja().isAtiva());
         if (usuario == null || !usuario.isAtivo() || !lojaDisponivel || !confere) {
             return ResponseEntity.status(401).body("Email ou senha inválidos.");
+        }
+
+        if (usuario.getRole() == UsuarioRole.SUPER_ADMIN) {
+            if (!totp.configurado()) {
+                throw new IllegalStateException("O segundo fator do superadministrador não foi configurado.");
+            }
+            if (request.codigoMfa() == null || request.codigoMfa().isBlank()) {
+                return ResponseEntity.status(428).body(java.util.Map.of("erro", "MFA_REQUIRED"));
+            }
+            if (!totp.validar(request.codigoMfa())) {
+                return ResponseEntity.status(401).body("Código de segurança inválido.");
+            }
         }
 
         return ResponseEntity.ok(new LoginResponse(

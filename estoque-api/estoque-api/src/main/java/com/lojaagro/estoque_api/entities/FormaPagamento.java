@@ -6,6 +6,7 @@ public enum FormaPagamento {
     CARTAO_DEBITO("Cartão de débito"),
     CARTAO_CREDITO("Cartão de crédito"),
     OUTRO("Outro"),
+    MULTIPLO("Pagamento dividido"),
     NAO_INFORMADO("Não informado");
 
     private final String rotulo;

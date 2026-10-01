@@ -18,17 +18,20 @@ public class AdminInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final String adminEmail;
     private final String adminPassword;
+    private final String adminStoreSlug;
     private final LojaRepository lojas;
 
     public AdminInitializer(UsuarioRepository repository,
                             PasswordEncoder passwordEncoder,
                             @Value("${app.admin.email:}") String adminEmail,
                             @Value("${app.admin.password:}") String adminPassword,
+                            @Value("${app.admin.store-slug:}") String adminStoreSlug,
                             LojaRepository lojas) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
+        this.adminStoreSlug = adminStoreSlug;
         this.lojas = lojas;
     }
 
@@ -60,8 +63,13 @@ public class AdminInitializer implements CommandLineRunner {
         admin.setEmail(emailNormalizado);
         admin.setSenha(passwordEncoder.encode(adminPassword));
         admin.setRole(UsuarioRole.ADMIN);
-        admin.setLoja(lojas.findAll().stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("Loja piloto não inicializada.")));
+        if (adminStoreSlug.isBlank()) {
+            throw new IllegalStateException(
+                    "ADMIN_STORE_SLUG é obrigatório ao criar um ADMIN por variável de ambiente. "
+                    + "Em produção, prefira criar lojas pelo painel da plataforma.");
+        }
+        admin.setLoja(lojas.findBySlug(adminStoreSlug.trim())
+                .orElseThrow(() -> new IllegalStateException("ADMIN_STORE_SLUG não corresponde a uma loja.")));
         repository.save(admin);
     }
 }

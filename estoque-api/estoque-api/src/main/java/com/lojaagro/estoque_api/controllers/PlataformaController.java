@@ -15,29 +15,40 @@ import java.util.List;
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 public class PlataformaController {
     private final LojaService lojas;
-    public PlataformaController(LojaService lojas) { this.lojas = lojas; }
+    private final com.lojaagro.estoque_api.services.UsuarioService usuarios;
+    private final com.lojaagro.estoque_api.services.AuditoriaService auditoria;
+    public PlataformaController(LojaService lojas, com.lojaagro.estoque_api.services.UsuarioService usuarios,
+                                com.lojaagro.estoque_api.services.AuditoriaService auditoria) {
+        this.lojas = lojas; this.usuarios = usuarios; this.auditoria = auditoria;
+    }
     public record Estado(@NotNull Boolean ativa) {}
     public record Configuracao(
             @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 100) String nome,
             @NotNull Boolean financeiroAtivo,
             Boolean fotosAtivas,
             Boolean notasFiscaisAtivas,
+            Boolean caixaOperacionalAtivo,
+            Boolean lanchoneteAtiva,
             @jakarta.validation.constraints.Size(max = 20) String whatsapp) {}
 
     @GetMapping public List<Loja> listar() { return lojas.listar(); }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Loja criar(@Valid @RequestBody CriarLojaRequest request) { return lojas.criar(request); }
+    public Loja criar(@Valid @RequestBody CriarLojaRequest request, org.springframework.security.core.Authentication auth) {
+        Loja loja=lojas.criar(request); auditoria.registrarPlataforma(usuarios.atual(auth),loja,"CRIAR","Nova loja: "+loja.getNome()); return loja;
+    }
 
     @PutMapping("/{id}/status")
-    public Loja alterarStatus(@PathVariable Long id, @Valid @RequestBody Estado estado) {
-        return lojas.alterarStatus(id, estado.ativa());
+    public Loja alterarStatus(@PathVariable Long id, @Valid @RequestBody Estado estado, org.springframework.security.core.Authentication auth) {
+        Loja loja=lojas.alterarStatus(id, estado.ativa()); auditoria.registrarPlataforma(usuarios.atual(auth),loja,estado.ativa()?"REATIVAR":"BLOQUEAR",null); return loja;
     }
 
     @PutMapping("/{id}/configuracao")
-    public Loja configurar(@PathVariable Long id, @Valid @RequestBody Configuracao config) {
-        return lojas.configurar(id, config.nome(), config.financeiroAtivo(), config.fotosAtivas(),
-                config.notasFiscaisAtivas(), config.whatsapp());
+    public Loja configurar(@PathVariable Long id, @Valid @RequestBody Configuracao config, org.springframework.security.core.Authentication auth) {
+        Loja loja=lojas.configurar(id, config.nome(), config.financeiroAtivo(), config.fotosAtivas(),
+                config.notasFiscaisAtivas(), config.caixaOperacionalAtivo(),
+                config.lanchoneteAtiva(), config.whatsapp());
+        auditoria.registrarPlataforma(usuarios.atual(auth),loja,"CONFIGURAR","Módulos da loja atualizados"); return loja;
     }
 }

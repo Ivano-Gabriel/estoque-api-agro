@@ -77,11 +77,16 @@ public class TransacaoService {
     
     public BigDecimal somarPorTipo(Long lojaId, String tipo) {
         BigDecimal soma = repository.sumValorTotalByTipo(lojaId, tipo);
-        return soma != null ? soma : BigDecimal.ZERO;
+        BigDecimal valor = soma != null ? soma : BigDecimal.ZERO;
+        if ("VENDA".equals(tipo)) {
+            BigDecimal devolvido = repository.sumValorTotalByTipo(lojaId, "DEVOLUCAO");
+            valor = valor.subtract(devolvido == null ? BigDecimal.ZERO : devolvido);
+        }
+        return valor;
     }
 
     public BigDecimal somarLucroReal(Long lojaId) {
-        BigDecimal soma = repository.sumLucroVendas(lojaId);
+        BigDecimal soma = repository.sumLucroOperacional(lojaId);
         return soma != null ? soma : BigDecimal.ZERO;
     }
 }

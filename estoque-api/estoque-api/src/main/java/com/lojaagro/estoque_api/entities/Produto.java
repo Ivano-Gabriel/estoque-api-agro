@@ -21,6 +21,19 @@ public class Produto {
     private String nome;
     private String tipo;
 
+    @jakarta.persistence.Column(length = 60)
+    private String sku;
+
+    @jakarta.persistence.Column(name = "codigo_barras", length = 50)
+    private String codigoBarras;
+
+    @jakarta.persistence.Column(length = 120)
+    private String variacao;
+
+    @jakarta.persistence.Column(name = "estoque_minimo", nullable = false,
+            columnDefinition = "integer default 5")
+    private int estoqueMinimo = 5;
+
     @jakarta.persistence.Column(length = 500)
     private String descricao;
 
@@ -73,6 +86,10 @@ public class Produto {
     public Long getId() { return id; }
     public String getNome() { return nome; }
     public String getTipo() { return tipo; }
+    public String getSku() { return sku; }
+    public String getCodigoBarras() { return codigoBarras; }
+    public String getVariacao() { return variacao; }
+    public int getEstoqueMinimo() { return estoqueMinimo; }
     public String getDescricao() { return descricao; }
     public String getImagemUrl() { return imagemUrl; }
     public Loja getLoja() { return loja; }
@@ -110,6 +127,21 @@ public class Produto {
                                Categoria categoria,
                                String descricao,
                                String imagemUrl) {
+        atualizarDados(nome, tipo, preco, dataValidade, categoria, descricao, imagemUrl,
+                null, null, null, 5);
+    }
+
+    public void atualizarDados(String nome,
+                               String tipo,
+                               BigDecimal preco,
+                               LocalDate dataValidade,
+                               Categoria categoria,
+                               String descricao,
+                               String imagemUrl,
+                               String sku,
+                               String codigoBarras,
+                               String variacao,
+                               int estoqueMinimo) {
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException("O nome do produto é obrigatório.");
         }
@@ -127,6 +159,15 @@ public class Produto {
         this.categoria = categoria;
         this.descricao = descricao == null || descricao.isBlank() ? null : descricao.trim();
         this.imagemUrl = imagemUrl == null || imagemUrl.isBlank() ? null : imagemUrl.trim();
+        this.sku = normalizarOpcional(sku);
+        this.codigoBarras = normalizarOpcional(codigoBarras);
+        this.variacao = normalizarOpcional(variacao);
+        if (estoqueMinimo < 0) throw new IllegalArgumentException("Estoque mínimo não pode ser negativo.");
+        this.estoqueMinimo = estoqueMinimo;
+    }
+
+    private String normalizarOpcional(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     public void setLoja(Loja loja) { this.loja = loja; }

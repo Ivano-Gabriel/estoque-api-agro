@@ -9,16 +9,23 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import com.lojaagro.estoque_api.entities.FormaPagamento;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
+import com.lojaagro.estoque_api.repositories.PagamentoVendaRepository;
 
 @Service
 public class FluxoCaixaService {
 
     private final FluxoCaixaRepository repository;
     private final TransacaoRepository transacoes;
+    private final PagamentoVendaRepository pagamentos;
+    private final com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository devolucoes;
 
-    public FluxoCaixaService(FluxoCaixaRepository repository, TransacaoRepository transacoes) {
+    public FluxoCaixaService(FluxoCaixaRepository repository, TransacaoRepository transacoes,
+                             PagamentoVendaRepository pagamentos,
+                             com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository devolucoes) {
         this.repository = repository;
         this.transacoes = transacoes;
+        this.pagamentos = pagamentos;
+        this.devolucoes = devolucoes;
     }
 
     @Transactional
@@ -50,9 +57,17 @@ public class FluxoCaixaService {
     public Map<String, BigDecimal> recebimentosPorForma(Long lojaId) {
         Map<String, BigDecimal> resultado = new LinkedHashMap<>();
         for (FormaPagamento forma : FormaPagamento.values()) resultado.put(forma.name(), BigDecimal.ZERO.setScale(2));
-        transacoes.somarVendasPorForma(lojaId).forEach(linha -> {
+        pagamentos.somarPorForma(lojaId).forEach(linha -> {
             FormaPagamento forma = linha[0] == null ? FormaPagamento.NAO_INFORMADO : (FormaPagamento) linha[0];
             resultado.put(forma.name(), ((BigDecimal) linha[1]).setScale(2));
+        });
+        devolucoes.somarPorForma(lojaId).forEach(linha -> {
+            FormaPagamento forma = (FormaPagamento) linha[0];
+            resultado.merge(forma.name(), ((BigDecimal) linha[1]).negate().setScale(2), BigDecimal::add);
+        });
+        transacoes.somarVendasLegadasPorForma(lojaId).forEach(linha -> {
+            FormaPagamento forma = linha[0] == null ? FormaPagamento.NAO_INFORMADO : (FormaPagamento) linha[0];
+            resultado.merge(forma.name(), ((BigDecimal) linha[1]).setScale(2), BigDecimal::add);
         });
         return resultado;
     }

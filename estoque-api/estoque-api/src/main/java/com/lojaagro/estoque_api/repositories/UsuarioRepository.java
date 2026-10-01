@@ -16,5 +16,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByIdAndLojaId(Long id, Long lojaId);
     java.util.List<Usuario> findByLojaId(Long lojaId);
+    java.util.List<Usuario> findByRole(com.lojaagro.estoque_api.entities.UsuarioRole role);
     
 }
