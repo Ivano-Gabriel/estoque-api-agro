@@ -6,6 +6,7 @@ import com.lojaagro.estoque_api.entities.*;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
 import com.lojaagro.estoque_api.repositories.VendaRepository;
+import com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
