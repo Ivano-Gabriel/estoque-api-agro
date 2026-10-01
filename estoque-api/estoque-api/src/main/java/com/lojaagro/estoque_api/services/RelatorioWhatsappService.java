@@ -6,6 +6,7 @@ import com.lojaagro.estoque_api.entities.Transacao;
 import com.lojaagro.estoque_api.entities.Loja;
 import com.lojaagro.estoque_api.repositories.ProdutoRepository;
 import com.lojaagro.estoque_api.repositories.TransacaoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,7 @@ public class RelatorioWhatsappService {
     private final com.lojaagro.estoque_api.repositories.PagamentoVendaRepository pagamentos;
     private final com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository devolucoes;
 
+    @Autowired
     public RelatorioWhatsappService(
             TransacaoRepository transacaoRepository,
             ProdutoRepository produtoRepository,
