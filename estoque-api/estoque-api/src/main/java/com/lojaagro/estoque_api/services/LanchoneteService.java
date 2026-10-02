@@ -201,7 +201,7 @@ public class LanchoneteService {
                 throw new IllegalArgumentException("Opção repetida no grupo.");
             }
             Produto venda = produto(opcaoRequest.produtoId(), loja);
-            tornarProdutoDeVenda(venda);
+            configurarControleDoProduto(venda, false);
             Produto ingrediente = opcaoRequest.ingredienteId() == null
                     ? null : insumo(opcaoRequest.ingredienteId(), loja);
             if (opcaoRequest.quantidadeInsumo() > 0 && ingrediente == null) {
