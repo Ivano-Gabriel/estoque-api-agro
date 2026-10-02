@@ -152,7 +152,11 @@ public class ProdutoService {
 
     private void validarValoresFinanceiros(ProdutoRequest request, Loja loja) {
         if (!loja.isFinanceiroAtivo()) return;
-        exigirPositivo(request.preco(), "Preço de venda");
+        if ("INSUMO".equalsIgnoreCase(request.tipo().trim())) {
+            exigirNaoNegativo(request.preco(), "Preço de venda");
+        } else {
+            exigirPositivo(request.preco(), "Preço de venda");
+        }
         if (request.quantidadeEstoque() > 0) exigirPositivo(request.custoUnitario(), "Custo do estoque inicial");
     }
 
@@ -167,6 +171,13 @@ public class ProdutoService {
     private BigDecimal exigirPositivo(BigDecimal valor, String campo) {
         if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(campo + " deve ser maior que zero.");
+        }
+        return valor;
+    }
+
+    private BigDecimal exigirNaoNegativo(BigDecimal valor, String campo) {
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(campo + " não pode ser negativo.");
         }
         return valor;
     }
