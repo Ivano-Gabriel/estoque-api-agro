@@ -1,0 +1,11 @@
+package com.lojaagro.estoque_api.entities;
+import jakarta.persistence.*;import java.math.*;import java.util.*;
+@Entity @Table(name="pedido_lanchonete_item")
+public class PedidoLanchoneteItem{
+ @Id@GeneratedValue(strategy=GenerationType.IDENTITY)private Long id;@ManyToOne(fetch=FetchType.LAZY,optional=false)@JoinColumn(name="pedido_id",nullable=false)private PedidoLanchonete pedido;@ManyToOne(fetch=FetchType.LAZY,optional=false)@JoinColumn(name="item_cardapio_id",nullable=false)private ItemCardapio itemCardapio;@ManyToOne(fetch=FetchType.LAZY,optional=false)@JoinColumn(name="produto_id",nullable=false)private Produto produto;
+ @Column(nullable=false,length=120)private String nome;@Column(nullable=false)private int quantidade;@Column(name="preco_unitario",nullable=false,precision=19,scale=2)private BigDecimal precoUnitario;@Column(nullable=false,precision=19,scale=2)private BigDecimal subtotal;@Column(length=300)private String observacoes;@Column(nullable=false,length=40)private String estacao;
+ @OneToMany(mappedBy="item",cascade=CascadeType.ALL,orphanRemoval=true)@OrderBy("id ASC")private List<PedidoLanchoneteAdicional> adicionais=new ArrayList<>();protected PedidoLanchoneteItem(){}
+ public PedidoLanchoneteItem(PedidoLanchonete pedido,ItemCardapio item,int quantidade,BigDecimal preco,String observacoes){this.pedido=pedido;this.itemCardapio=item;this.produto=item.getProduto();this.nome=item.getProduto().getNome();this.quantidade=quantidade;this.precoUnitario=preco.setScale(2);this.subtotal=this.precoUnitario.multiply(BigDecimal.valueOf(quantidade)).setScale(2);this.observacoes=observacoes==null?null:observacoes.trim();this.estacao=item.getEstacao();}
+ public void adicionar(PedidoLanchoneteAdicional a){adicionais.add(a);subtotal=subtotal.add(a.getPrecoUnitario().multiply(BigDecimal.valueOf(a.getQuantidade()*quantidade))).setScale(2);}
+ public Long getId(){return id;}public ItemCardapio getItemCardapio(){return itemCardapio;}public Produto getProduto(){return produto;}public String getNome(){return nome;}public int getQuantidade(){return quantidade;}public BigDecimal getPrecoUnitario(){return precoUnitario;}public BigDecimal getSubtotal(){return subtotal;}public String getObservacoes(){return observacoes;}public String getEstacao(){return estacao;}public List<PedidoLanchoneteAdicional> getAdicionais(){return adicionais;}
+}

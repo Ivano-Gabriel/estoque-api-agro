@@ -51,6 +51,11 @@ class PilotIntegrityTest {
     @Autowired MovimentoCaixaRepository movimentosCaixaRepo;
     @Autowired CaixaSessaoRepository sessoesCaixaRepo;
     @Autowired AuditoriaRepository auditoriaRepo;
+    @Autowired LanchoneteService lanchonete;
+    @Autowired PedidoLanchoneteRepository pedidosLanchonete;
+    @Autowired ItemCardapioRepository itensCardapio;
+    @Autowired GrupoAdicionalRepository gruposAdicionais;
+    @Autowired MesaLanchoneteRepository mesasLanchonete;
     @org.springframework.beans.factory.annotation.Value("${local.server.port}") int port;
     Usuario admin;
     Usuario funcionaria;
@@ -58,6 +63,7 @@ class PilotIntegrityTest {
     Loja loja;
 
     @BeforeEach void preparar() {
+        pedidosLanchonete.deleteAll(); itensCardapio.deleteAll(); gruposAdicionais.deleteAll(); mesasLanchonete.deleteAll();
         movimentosCaixaRepo.deleteAll(); sessoesCaixaRepo.deleteAll(); devolucoesRepo.deleteAll();
         auditoriaRepo.deleteAll(); operacoes.deleteAll(); transacoes.deleteAll(); vendasRepo.deleteAll(); notasRepo.deleteAll(); clientesRepo.deleteAll();
         produtoRepo.deleteAll(); categorias.deleteAll(); usuarios.deleteAll();
@@ -261,6 +267,62 @@ class PilotIntegrityTest {
             assertTrue(response.headers().firstValue("Access-Control-Allow-Headers").orElse("").toLowerCase().contains("idempotency-key"));
         }
         assertEquals(1, transacoes.count());
+    }
+
+    @Test void lanchoneteBaixaFichaTecnicaIsolaLojaNaoDuplicaEEstorna() throws Exception {
+        loja.configurar(loja.getNome(), true, false, false, false, true, loja.getWhatsapp());
+        lojas.saveAndFlush(loja);
+        assertEquals(200, http("GET", "/lanchonete/configuracao",
+                jwt.gerarToken(funcionaria), null).statusCode());
+        assertEquals(403, http("POST", "/lanchonete/mesas", jwt.gerarToken(funcionaria),
+                "{\"nome\":\"Mesa proibida\",\"lugares\":4,\"ativa\":true,\"ordem\":0}").statusCode());
+        Produto lanche = produtos.criar(new ProdutoRequest("Hambúrguer artesanal", "LANCHES",
+                new BigDecimal("20.00"), BigDecimal.ZERO, null, 0,
+                new CategoriaRequest("Cardápio"), null, null), loja);
+        Produto carne = produtos.criar(new ProdutoRequest("Porção de carne", "INSUMO",
+                BigDecimal.ZERO, new BigDecimal("3.00"), null, 20,
+                new CategoriaRequest("Ingredientes"), null, null), loja);
+        Produto extra = produtos.criar(new ProdutoRequest("Queijo extra", "ADICIONAL",
+                new BigDecimal("3.00"), BigDecimal.ZERO, null, 0,
+                new CategoriaRequest("Adicionais"), null, null), loja);
+        Produto queijo = produtos.criar(new ProdutoRequest("Fatia de queijo", "INSUMO",
+                BigDecimal.ZERO, new BigDecimal("1.00"), null, 20,
+                new CategoriaRequest("Ingredientes"), null, null), loja);
+
+        var grupo = lanchonete.salvarGrupo(null, new LanchoneteDtos.GrupoRequest(
+                "Extras", 0, 2, false, true, 0,
+                List.of(new LanchoneteDtos.OpcaoRequest(extra.getId(), queijo.getId(), 1, true, 0))), admin);
+        var item = lanchonete.salvarItem(null, new LanchoneteDtos.ItemCardapioRequest(
+                lanche.getId(), "Hambúrguer", "CHAPA", 12, true, true, 0,
+                List.of(new LanchoneteDtos.IngredienteRequest(carne.getId(), 2)), Set.of(grupo.id())), admin);
+        UUID chave = UUID.randomUUID();
+        var request = new LanchoneteDtos.PedidoRequest(TipoAtendimento.BALCAO, null, null,
+                "Balcão", null, null, "Sem guardanapo", BigDecimal.ZERO,
+                List.of(new LanchoneteDtos.PedidoItemRequest(item.id(), 2, "Sem cebola",
+                        Set.of(grupo.opcoes().getFirst().id()))));
+
+        var criado = lanchonete.criar(chave, request, admin);
+        var repetido = lanchonete.criar(chave, request, admin);
+        assertEquals(criado.id(), repetido.id());
+        assertEquals(16, produtoRepo.findById(carne.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(18, produtoRepo.findById(queijo.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(0, produtoRepo.findById(lanche.getId()).orElseThrow().getQuantidadeEstoque());
+
+        Loja outra = lojas.saveAndFlush(new Loja("Outra lanchonete", "outra-lanchonete", true, false, null));
+        outra.configurar(outra.getNome(), true, false, false, false, true, null);
+        lojas.saveAndFlush(outra); caixas.saveAndFlush(new FluxoCaixa(outra.getId(), outra));
+        Usuario outroAdmin = new Usuario("outra@lanchonete.local", encoder.encode("senha-teste-segura"));
+        outroAdmin.setRole(UsuarioRole.ADMIN); outroAdmin.setLoja(outra); usuarios.saveAndFlush(outroAdmin);
+        assertThrows(IllegalArgumentException.class, () -> lanchonete.criar(UUID.randomUUID(), request, outroAdmin));
+
+        lanchonete.pagar(chave, new LanchoneteDtos.PagamentoRequest(FormaPagamento.PIX, null, null), admin);
+        assertEquals(new BigDecimal("46.00"), vendasRepo.findById(chave).orElseThrow().getTotal());
+        assertEquals(0, produtoRepo.findById(lanche.getId()).orElseThrow().getQuantidadeEstoque());
+        lanchonete.cancelar(chave, "Cliente desistiu", admin);
+        assertEquals(20, produtoRepo.findById(carne.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(20, produtoRepo.findById(queijo.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(0, produtoRepo.findById(lanche.getId()).orElseThrow().getQuantidadeEstoque());
+        assertEquals(StatusVenda.CANCELADA, vendasRepo.findById(chave).orElseThrow().getStatus());
     }
 
     HttpResponse<String> http(String method, String path, String token, String body) throws Exception {

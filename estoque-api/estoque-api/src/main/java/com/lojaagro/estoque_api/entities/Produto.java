@@ -74,6 +74,10 @@ public class Produto {
     // NOVO CAMPO: Controla se o produto foi "deletado"
     private boolean ativo = true;
 
+    @jakarta.persistence.Column(name = "controla_estoque", nullable = false,
+            columnDefinition = "boolean default true")
+    private boolean controlaEstoque = true;
+
     public Produto(String nome, String tipo, BigDecimal preco, LocalDate dataValidade, Categoria categoria) {
         this.nome = nome;
         this.tipo = tipo;
@@ -100,6 +104,7 @@ public class Produto {
     public Categoria getCategoria() { return categoria; }
     public int getQuantidadeEstoque() { return quantidadeEstoque; }
     public boolean isAtivo() { return ativo; } // Getter do ativo
+    public boolean isControlaEstoque() { return controlaEstoque; }
 
     // Setters de Configuração Base
     public void setPreco(BigDecimal novoPreco) {
@@ -119,6 +124,8 @@ public class Produto {
     public void setAtivo(boolean ativo) {
         this.ativo = ativo;
     }
+
+    public void setControlaEstoque(boolean controlaEstoque) { this.controlaEstoque = controlaEstoque; }
 
     public void atualizarDados(String nome,
                                String tipo,
@@ -187,6 +194,7 @@ public class Produto {
         if (quantidadeComprada <= 0) {
             throw new IllegalArgumentException("Quantidade de venda deve ser no mínimo 1.");
         }
+        if (!controlaEstoque) return;
         if (quantidadeComprada > this.quantidadeEstoque) {
             throw new IllegalArgumentException("Estoque insuficiente para " + this.nome + ".");
         }
@@ -195,6 +203,7 @@ public class Produto {
     }
 
     public void comprarProduto(int quantidadeAbastecida, BigDecimal custoCompra) {
+        if (!controlaEstoque) throw new IllegalArgumentException("Produto feito sob demanda não recebe reposição direta.");
         if (quantidadeAbastecida <= 0) {
             throw new IllegalArgumentException("A quantidade de abastecimento deve ser no mínimo 1.");
         }
@@ -216,6 +225,7 @@ public class Produto {
 
     public void reporSemCusto(int quantidade) {
         if (quantidade <= 0) throw new IllegalArgumentException("A quantidade de reposição deve ser no mínimo 1.");
+        if (!controlaEstoque) return;
         if (quantidade > Integer.MAX_VALUE - quantidadeEstoque) {
             throw new IllegalArgumentException("Quantidade excede o limite de estoque.");
         }
