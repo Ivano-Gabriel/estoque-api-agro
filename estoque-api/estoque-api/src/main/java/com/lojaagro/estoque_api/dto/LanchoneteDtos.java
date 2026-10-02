@@ -9,7 +9,7 @@ public final class LanchoneteDtos{
  public record MesaRequest(@NotBlank@Size(max=40)String nome,@Min(1)@Max(100)int lugares,boolean ativa,int ordem){}
  public record PedidoItemRequest(@NotNull Long itemCardapioId,@Min(1)@Max(1000)int quantidade,@Size(max=300)String observacoes,@Size(max=50)Set<Long>opcaoIds){}
  public record PedidoRequest(@NotNull TipoAtendimento tipo,Long clienteId,Long mesaId,@Size(max=80)String identificacao,@Size(max=20)String telefone,@Size(max=300)String endereco,@Size(max=500)String observacoes,@DecimalMin("0.00")@Digits(integer=17,fraction=2)BigDecimal desconto,@NotEmpty@Size(max=100)List<@Valid PedidoItemRequest>itens){}
- public record PagamentoRequest(FormaPagamento formaPagamento,@DecimalMin("0.00")BigDecimal valorRecebido,@Size(max=5)List<@Valid VendaRequest.Pagamento>pagamentos){}
+ public record PagamentoRequest(FormaPagamento formaPagamento,@DecimalMin("0.00")BigDecimal valorRecebido,@Valid@Size(max=5)List<VendaRequest.Pagamento>pagamentos){}
  public record StatusRequest(@NotNull StatusPedido status){} public record CancelamentoRequest(@NotBlank@Size(max=300)String motivo){}
  public record ProdutoSimples(Long id,String nome,String tipo,BigDecimal preco,int estoque,boolean controlaEstoque,String imagemUrl){}
  public record Ingrediente(Long produtoId,String nome,int quantidade){}
