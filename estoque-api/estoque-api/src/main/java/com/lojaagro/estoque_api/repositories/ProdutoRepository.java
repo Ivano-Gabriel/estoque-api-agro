@@ -8,6 +8,8 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.math.BigDecimal;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
@@ -16,6 +18,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     List<Produto> findByLojaId(Long lojaId);
     java.util.Optional<Produto> findByIdAndLojaIdAndAtivoTrue(Long id, Long lojaId);
     java.util.Optional<Produto> findByIdAndLojaId(Long id, Long lojaId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Produto p WHERE p.id = :id AND p.loja.id = :lojaId")
+    java.util.Optional<Produto> bloquearPorIdELoja(Long id, Long lojaId);
 
     @Query("SELECT COUNT(p) FROM Produto p WHERE LOWER(TRIM(p.nome)) = LOWER(TRIM(:nome)) "
             + "AND LOWER(TRIM(p.categoria.nome)) = LOWER(TRIM(:categoria)) "

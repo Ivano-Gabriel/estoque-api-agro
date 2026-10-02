@@ -1,0 +1,1 @@
+package com.lojaagro.estoque_api.repositories;import com.lojaagro.estoque_api.entities.*;import org.springframework.data.jpa.repository.JpaRepository;import java.util.*;public interface OpcaoAdicionalRepository extends JpaRepository<OpcaoAdicional,Long>{Optional<OpcaoAdicional>findByIdAndGrupoLojaId(Long id,Long lojaId);boolean existsByIngredienteId(Long ingredienteId);}

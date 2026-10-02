@@ -31,12 +31,14 @@ public class VendaService {
     private final CaixaOperacionalService caixaOperacional;
     private final AuditoriaService auditoria;
     private final DevolucaoVendaRepository devolucoes;
+    private final com.lojaagro.estoque_api.repositories.PedidoLanchoneteRepository pedidosLanchonete;
 
     public VendaService(VendaRepository vendas, ProdutoRepository produtos,
                         TransacaoRepository transacoes, TransacaoService transacaoService,
                         FluxoCaixaService caixa, ClienteService clientes, Clock clock,
                         CaixaOperacionalService caixaOperacional, AuditoriaService auditoria,
-                        DevolucaoVendaRepository devolucoes) {
+                        DevolucaoVendaRepository devolucoes,
+                        com.lojaagro.estoque_api.repositories.PedidoLanchoneteRepository pedidosLanchonete) {
         this.vendas = vendas;
         this.produtos = produtos;
         this.transacoes = transacoes;
@@ -47,10 +49,23 @@ public class VendaService {
         this.caixaOperacional = caixaOperacional;
         this.auditoria = auditoria;
         this.devolucoes = devolucoes;
+        this.pedidosLanchonete = pedidosLanchonete;
     }
 
     @Transactional
     public VendaResponse concluir(UUID chave, VendaRequest request, Usuario usuario) {
+        return concluirInterno(chave, request, usuario, Map.of());
+    }
+
+    @Transactional
+    public VendaResponse concluirPedido(UUID chave, VendaRequest request, Usuario usuario,
+                                        Map<Long, BigDecimal> custosConfiaveis) {
+        return concluirInterno(chave, request, usuario,
+                custosConfiaveis == null ? Map.of() : Map.copyOf(custosConfiaveis));
+    }
+
+    private VendaResponse concluirInterno(UUID chave, VendaRequest request, Usuario usuario,
+                                          Map<Long, BigDecimal> custosConfiaveis) {
         Loja loja = exigirLoja(usuario);
         String assinatura = assinatura(request);
         Optional<Venda> repetida = vendas.findById(chave);
@@ -85,12 +100,15 @@ public class VendaService {
         for (VendaRequest.Item solicitado : request.itens()) {
             Produto produto = produtos.findByIdAndLojaIdAndAtivoTrue(solicitado.produtoId(), loja.getId())
                     .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado nesta loja."));
-            if (produto.getQuantidadeEstoque() < solicitado.quantidade()) {
+            if (produto.isControlaEstoque() && produto.getQuantidadeEstoque() < solicitado.quantidade()) {
                 throw new IllegalArgumentException("Estoque insuficiente para " + produto.getNome() + ".");
             }
             BigDecimal preco = normalizar(produto.getPreco());
             BigDecimal linhaSubtotal = preco.multiply(BigDecimal.valueOf(solicitado.quantidade())).setScale(2);
-            linhas.add(new Linha(produto, solicitado.quantidade(), preco, linhaSubtotal));
+            BigDecimal custo = normalizar(custosConfiaveis.getOrDefault(
+                    produto.getId(), produto.getCustoMedio()));
+            if (custo.signum() < 0) throw new IllegalArgumentException("Custo da venda não pode ser negativo.");
+            linhas.add(new Linha(produto, solicitado.quantidade(), preco, custo, linhaSubtotal));
             subtotal = subtotal.add(linhaSubtotal);
         }
 
@@ -127,7 +145,7 @@ public class VendaService {
             descontoDistribuido = descontoDistribuido.add(rateio);
             BigDecimal totalLinha = financeiro ? linha.subtotal().subtract(rateio).setScale(2) : ZERO;
             venda.adicionarItem(new VendaItem(venda, linha.produto(), linha.quantidade(),
-                    financeiro ? linha.preco() : ZERO, linha.produto().getCustoMedio(),
+                    financeiro ? linha.preco() : ZERO, linha.custo(),
                     financeiro ? linha.subtotal() : ZERO, rateio, totalLinha));
         }
         vendas.saveAndFlush(venda);
@@ -174,6 +192,18 @@ public class VendaService {
 
     @Transactional
     public VendaResponse cancelar(UUID id, String motivo, Usuario responsavel) {
+        if (pedidosLanchonete.existsByVendaId(id)) {
+            throw new IllegalArgumentException("Cancele esta venda pela tela de pedidos da lanchonete.");
+        }
+        return cancelarInterno(id, motivo, responsavel);
+    }
+
+    @Transactional
+    public VendaResponse cancelarPedido(UUID id, String motivo, Usuario responsavel) {
+        return cancelarInterno(id, motivo, responsavel);
+    }
+
+    private VendaResponse cancelarInterno(UUID id, String motivo, Usuario responsavel) {
         Loja loja = exigirLoja(responsavel);
         caixa.bloquearOperacoes(loja.getId());
         Venda venda = vendas.bloquearPorIdELoja(id, loja.getId())
@@ -201,6 +231,12 @@ public class VendaService {
         auditoria.registrar(responsavel, "CANCELAR", "VENDA", venda.getId(),
                 "Total estornado: " + venda.getTotal() + " • Motivo: " + motivo);
         return VendaResponse.de(venda);
+    }
+
+    @Transactional(readOnly = true)
+    public Venda entidade(UUID id, Loja loja) {
+        return vendas.findByIdAndLojaId(id, loja.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Venda não encontrada nesta loja."));
     }
 
     @Transactional
@@ -318,6 +354,7 @@ public class VendaService {
         return List.copyOf(resultado);
     }
 
-    private record Linha(Produto produto, int quantidade, BigDecimal preco, BigDecimal subtotal) {}
+    private record Linha(Produto produto, int quantidade, BigDecimal preco, BigDecimal custo,
+                         BigDecimal subtotal) {}
     private record PagamentoCalculado(FormaPagamento forma, BigDecimal valor) {}
 }

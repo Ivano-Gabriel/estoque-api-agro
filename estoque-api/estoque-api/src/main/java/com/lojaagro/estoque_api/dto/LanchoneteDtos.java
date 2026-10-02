@@ -1,0 +1,29 @@
+package com.lojaagro.estoque_api.dto;
+import com.lojaagro.estoque_api.entities.*;import jakarta.validation.Valid;import jakarta.validation.constraints.*;import java.math.*;import java.time.*;import java.util.*;
+public final class LanchoneteDtos{
+ private LanchoneteDtos(){}
+ public record IngredienteRequest(@NotNull Long produtoId,@Min(1)@Max(1000000)int quantidade){}
+ public record ItemCardapioRequest(@NotNull Long produtoId,@Size(max=80)String nomeCozinha,@NotBlank@Size(max=40)String estacao,@Min(0)@Max(480)int tempoPreparoMinutos,boolean disponivel,boolean destaque,int ordem,@Size(max=100)List<@Valid IngredienteRequest>ingredientes,@Size(max=30)Set<Long>grupoIds){}
+ public record OpcaoRequest(@NotNull Long produtoId,Long ingredienteId,@Min(0)@Max(1000000)int quantidadeInsumo,boolean ativo,int ordem){}
+ public record GrupoRequest(@NotBlank@Size(max=80)String nome,@Min(0)@Max(100)int minimo,@Min(1)@Max(100)int maximo,boolean obrigatorio,boolean ativo,int ordem,@NotEmpty@Size(max=100)List<@Valid OpcaoRequest>opcoes){}
+ public record MesaRequest(@NotBlank@Size(max=40)String nome,@Min(1)@Max(100)int lugares,boolean ativa,int ordem){}
+ public record PedidoItemRequest(@NotNull Long itemCardapioId,@Min(1)@Max(1000)int quantidade,@Size(max=300)String observacoes,@Size(max=50)Set<Long>opcaoIds){}
+ public record PedidoRequest(@NotNull TipoAtendimento tipo,Long clienteId,Long mesaId,@Size(max=80)String identificacao,@Size(max=20)String telefone,@Size(max=300)String endereco,@Size(max=500)String observacoes,@DecimalMin("0.00")@Digits(integer=17,fraction=2)BigDecimal desconto,@NotEmpty@Size(max=100)List<@Valid PedidoItemRequest>itens){}
+ public record PagamentoRequest(FormaPagamento formaPagamento,@DecimalMin("0.00")BigDecimal valorRecebido,@Size(max=5)List<@Valid VendaRequest.Pagamento>pagamentos){}
+ public record StatusRequest(@NotNull StatusPedido status){} public record CancelamentoRequest(@NotBlank@Size(max=300)String motivo){}
+ public record ProdutoSimples(Long id,String nome,String tipo,BigDecimal preco,int estoque,boolean controlaEstoque,String imagemUrl){}
+ public record Ingrediente(Long produtoId,String nome,int quantidade){}
+ public record Opcao(Long id,ProdutoSimples produto,Long ingredienteId,String ingrediente,int quantidadeInsumo,boolean ativo,int ordem){}
+ public record Grupo(Long id,String nome,int minimo,int maximo,boolean obrigatorio,boolean ativo,int ordem,List<Opcao>opcoes){}
+ public record ItemCardapioResponse(Long id,ProdutoSimples produto,String nomeCozinha,String estacao,int tempoPreparoMinutos,boolean disponivel,boolean destaque,int ordem,List<Ingrediente>ingredientes,List<Grupo>grupos){}
+ public record Mesa(Long id,String nome,int lugares,boolean ativa,int ordem,boolean ocupada){}
+ public record Configuracao(List<ItemCardapioResponse>cardapio,List<Grupo>grupos,List<Mesa>mesas){}
+ public record AdicionalPedido(String nome,int quantidade,BigDecimal precoUnitario){}
+ public record ItemPedido(Long id,String nome,int quantidade,BigDecimal precoUnitario,BigDecimal subtotal,String observacoes,String estacao,List<AdicionalPedido>adicionais){}
+ public record PedidoResponse(UUID id,long numero,TipoAtendimento tipo,StatusPedido status,String cliente,String mesa,String identificacao,String telefone,String endereco,String observacoes,BigDecimal subtotal,BigDecimal desconto,BigDecimal total,LocalDateTime criadoEm,LocalDateTime atualizadoEm,LocalDateTime prontoEm,UUID vendaId,List<ItemPedido>itens){}
+ public static ProdutoSimples produto(Produto p){return new ProdutoSimples(p.getId(),p.getNome(),p.getTipo(),p.getPreco(),p.getQuantidadeEstoque(),p.isControlaEstoque(),p.getImagemUrl());}
+ public static Grupo grupo(GrupoAdicional g){return new Grupo(g.getId(),g.getNome(),g.getMinimo(),g.getMaximo(),g.isObrigatorio(),g.isAtivo(),g.getOrdem(),g.getOpcoes().stream().map(o->new Opcao(o.getId(),produto(o.getProduto()),o.getIngrediente()==null?null:o.getIngrediente().getId(),o.getIngrediente()==null?null:o.getIngrediente().getNome(),o.getQuantidadeInsumo(),o.isAtivo(),o.getOrdem())).toList());}
+ public static ItemCardapioResponse item(ItemCardapio i){return new ItemCardapioResponse(i.getId(),produto(i.getProduto()),i.getNomeCozinha(),i.getEstacao(),i.getTempoPreparoMinutos(),i.isDisponivel(),i.isDestaque(),i.getOrdem(),i.getIngredientes().stream().map(f->new Ingrediente(f.getIngrediente().getId(),f.getIngrediente().getNome(),f.getQuantidade())).toList(),i.getGrupos().stream().filter(GrupoAdicional::isAtivo).map(LanchoneteDtos::grupoCardapio).toList());}
+ private static Grupo grupoCardapio(GrupoAdicional g){return new Grupo(g.getId(),g.getNome(),g.getMinimo(),g.getMaximo(),g.isObrigatorio(),g.isAtivo(),g.getOrdem(),g.getOpcoes().stream().filter(OpcaoAdicional::isAtivo).filter(o->o.getProduto().isAtivo()).filter(o->o.getIngrediente()==null||o.getIngrediente().isAtivo()).map(o->new Opcao(o.getId(),produto(o.getProduto()),o.getIngrediente()==null?null:o.getIngrediente().getId(),o.getIngrediente()==null?null:o.getIngrediente().getNome(),o.getQuantidadeInsumo(),true,o.getOrdem())).toList());}
+ public static PedidoResponse pedido(PedidoLanchonete p){return new PedidoResponse(p.getId(),p.getNumero(),p.getTipo(),p.getStatus(),p.getCliente()==null?null:p.getCliente().getNome(),p.getMesa()==null?null:p.getMesa().getNome(),p.getIdentificacao(),p.getTelefone(),p.getEndereco(),p.getObservacoes(),p.getSubtotal(),p.getDesconto(),p.getTotal(),p.getCriadoEm(),p.getAtualizadoEm(),p.getProntoEm(),p.getVenda()==null?null:p.getVenda().getId(),p.getItens().stream().map(i->new ItemPedido(i.getId(),i.getNome(),i.getQuantidade(),i.getPrecoUnitario(),i.getSubtotal(),i.getObservacoes(),i.getEstacao(),i.getAdicionais().stream().map(a->new AdicionalPedido(a.getNome(),a.getQuantidade(),a.getPrecoUnitario())).toList())).toList());}
+}
