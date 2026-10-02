@@ -293,7 +293,7 @@ class PilotIntegrityTest {
                 "Extras", 0, 2, false, true, 0,
                 List.of(new LanchoneteDtos.OpcaoRequest(extra.getId(), queijo.getId(), 1, true, 0))), admin);
         var item = lanchonete.salvarItem(null, new LanchoneteDtos.ItemCardapioRequest(
-                lanche.getId(), "Hambúrguer", "CHAPA", 12, true, true, 0,
+                lanche.getId(), "Hambúrguer", "CHAPA", 12, true, true, false, 0,
                 List.of(new LanchoneteDtos.IngredienteRequest(carne.getId(), 2)), Set.of(grupo.id())), admin);
         UUID chave = UUID.randomUUID();
         var request = new LanchoneteDtos.PedidoRequest(TipoAtendimento.BALCAO, null, null,
@@ -323,6 +323,22 @@ class PilotIntegrityTest {
         assertEquals(20, produtoRepo.findById(queijo.getId()).orElseThrow().getQuantidadeEstoque());
         assertEquals(0, produtoRepo.findById(lanche.getId()).orElseThrow().getQuantidadeEstoque());
         assertEquals(StatusVenda.CANCELADA, vendasRepo.findById(chave).orElseThrow().getStatus());
+
+        Produto refrigerante = produtos.criar(new ProdutoRequest("Refrigerante lata", "BEBIDA",
+                new BigDecimal("6.00"), new BigDecimal("3.00"), null, 10,
+                new CategoriaRequest("Bebidas"), null, null), loja);
+        var itemPronto = lanchonete.salvarItem(null, new LanchoneteDtos.ItemCardapioRequest(
+                refrigerante.getId(), null, "BALCAO", 0, true, false, true, 1,
+                List.of(), Set.of()), admin);
+        UUID chaveProdutoPronto = UUID.randomUUID();
+        lanchonete.criar(chaveProdutoPronto, new LanchoneteDtos.PedidoRequest(
+                TipoAtendimento.BALCAO, null, null, "Balcão", null, null, null,
+                BigDecimal.ZERO, List.of(new LanchoneteDtos.PedidoItemRequest(
+                itemPronto.id(), 4, null, Set.of()))), admin);
+        assertEquals(10, produtoRepo.findById(refrigerante.getId()).orElseThrow().getQuantidadeEstoque());
+        lanchonete.pagar(chaveProdutoPronto,
+                new LanchoneteDtos.PagamentoRequest(FormaPagamento.PIX, null, null), admin);
+        assertEquals(6, produtoRepo.findById(refrigerante.getId()).orElseThrow().getQuantidadeEstoque());
     }
 
     HttpResponse<String> http(String method, String path, String token, String body) throws Exception {

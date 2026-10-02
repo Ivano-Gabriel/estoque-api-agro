@@ -149,9 +149,11 @@ public class LanchoneteService {
             throw new IllegalArgumentException("Produto já está no cardápio.");
         }
 
-        tornarProdutoDeVenda(produto);
+        boolean baixaProdutoFinal = request.baixaProdutoFinal()
+                && listaSegura(request.ingredientes()).isEmpty();
+        configurarControleDoProduto(produto, baixaProdutoFinal);
         item.configurar(request.nomeCozinha(), request.estacao(), request.tempoPreparoMinutos(),
-                request.disponivel(), request.destaque(), request.ordem());
+                request.disponivel(), request.destaque(), baixaProdutoFinal, request.ordem());
 
         List<FichaTecnicaItem> ficha = new ArrayList<>();
         Set<Long> ids = new HashSet<>();
@@ -515,13 +517,13 @@ public class LanchoneteService {
         return produto;
     }
 
-    private void tornarProdutoDeVenda(Produto produto) {
+    private void configurarControleDoProduto(Produto produto, boolean baixaProdutoFinal) {
         if (fichas.existsByIngredienteId(produto.getId())
                 || opcoes.existsByIngredienteId(produto.getId())) {
             throw new IllegalArgumentException(produto.getNome()
                     + " já é usado como insumo e não pode virar item de venda.");
         }
-        produto.setControlaEstoque(false);
+        produto.setControlaEstoque(baixaProdutoFinal);
     }
 
     private void exigirModulo(Loja loja) {

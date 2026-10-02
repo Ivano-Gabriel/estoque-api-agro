@@ -12,6 +12,7 @@ public class ItemCardapio {
  @Column(name="tempo_preparo_minutos",nullable=false) private int tempoPreparoMinutos=15;
  @Column(nullable=false) private boolean disponivel=true;
  @Column(nullable=false) private boolean destaque=false;
+ @Column(name="baixa_produto_final",nullable=false) private boolean baixaProdutoFinal=false;
  @Column(nullable=false) private int ordem=0;
  @Version @Column(nullable=false) private long versao;
  @OneToMany(mappedBy="item",cascade=CascadeType.ALL,orphanRemoval=true) @OrderBy("id ASC") private List<FichaTecnicaItem> ingredientes=new ArrayList<>();
@@ -19,10 +20,10 @@ public class ItemCardapio {
  @OrderBy("ordem ASC,id ASC") private Set<GrupoAdicional> grupos=new LinkedHashSet<>();
  protected ItemCardapio(){}
  public ItemCardapio(Loja loja,Produto produto){this.loja=loja;this.produto=produto;}
- public void configurar(String nomeCozinha,String estacao,int tempo,boolean disponivel,boolean destaque,int ordem){
+ public void configurar(String nomeCozinha,String estacao,int tempo,boolean disponivel,boolean destaque,boolean baixaProdutoFinal,int ordem){
   if(tempo<0||tempo>480)throw new IllegalArgumentException("Tempo de preparo inválido.");
   this.nomeCozinha=texto(nomeCozinha,80);this.estacao=textoObrigatorio(estacao,"Estação",40).toUpperCase(Locale.ROOT);
-  this.tempoPreparoMinutos=tempo;this.disponivel=disponivel;this.destaque=destaque;this.ordem=ordem;
+  this.tempoPreparoMinutos=tempo;this.disponivel=disponivel;this.destaque=destaque;this.baixaProdutoFinal=baixaProdutoFinal;this.ordem=ordem;
  }
  public void substituirIngredientes(List<FichaTecnicaItem> novos){ingredientes.clear();ingredientes.addAll(novos);}
  public void substituirGrupos(Collection<GrupoAdicional> novos){grupos.clear();grupos.addAll(novos);}
@@ -30,6 +31,6 @@ public class ItemCardapio {
  private String textoObrigatorio(String v,String campo,int max){String s=texto(v,max);if(s==null)throw new IllegalArgumentException(campo+" é obrigatória.");return s;}
  public Long getId(){return id;} public Loja getLoja(){return loja;} public Produto getProduto(){return produto;}
  public String getNomeCozinha(){return nomeCozinha;} public String getEstacao(){return estacao;} public int getTempoPreparoMinutos(){return tempoPreparoMinutos;}
- public boolean isDisponivel(){return disponivel;} public boolean isDestaque(){return destaque;} public int getOrdem(){return ordem;}
+ public boolean isDisponivel(){return disponivel;} public boolean isDestaque(){return destaque;} public boolean isBaixaProdutoFinal(){return baixaProdutoFinal;} public int getOrdem(){return ordem;}
  public List<FichaTecnicaItem> getIngredientes(){return ingredientes;} public Set<GrupoAdicional> getGrupos(){return grupos;}
 }
