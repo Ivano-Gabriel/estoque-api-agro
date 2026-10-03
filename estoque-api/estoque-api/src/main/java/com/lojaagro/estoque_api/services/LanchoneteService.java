@@ -110,9 +110,9 @@ public class LanchoneteService {
         exigirModulo(loja);
         List<PedidoLanchonete> abertos = pedidos.findTop100ByLojaIdAndStatusInOrderByCriadoEmAsc(
                 loja.getId(), statusAbertos());
-        Set<Long> ocupadas = new HashSet<>();
+        Map<Long, PedidoLanchonete> pedidosPorMesa = new HashMap<>();
         abertos.forEach(pedido -> {
-            if (pedido.getMesa() != null) ocupadas.add(pedido.getMesa().getId());
+            if (pedido.getMesa() != null) pedidosPorMesa.putIfAbsent(pedido.getMesa().getId(), pedido);
         });
         return new Configuracao(
                 itens.findByLojaIdOrderByOrdemAscIdAsc(loja.getId()).stream()
@@ -120,8 +120,7 @@ public class LanchoneteService {
                 grupos.findByLojaIdOrderByOrdemAscIdAsc(loja.getId()).stream()
                         .map(LanchoneteDtos::grupo).toList(),
                 mesas.findByLojaIdOrderByOrdemAscIdAsc(loja.getId()).stream()
-                        .map(mesa -> new Mesa(mesa.getId(), mesa.getNome(), mesa.getLugares(),
-                                mesa.isAtiva(), mesa.getOrdem(), ocupadas.contains(mesa.getId())))
+                        .map(mesa -> respostaMesa(mesa, pedidosPorMesa.get(mesa.getId())))
                         .toList());
     }
 
@@ -234,12 +233,16 @@ public class LanchoneteService {
                 ? new MesaLanchonete(usuario.getLoja())
                 : mesas.findByIdAndLojaId(id, usuario.getLoja().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Mesa não encontrada."));
+        boolean ocupada = id != null && pedidos.existsByLojaIdAndMesaIdAndStatusIn(
+                usuario.getLoja().getId(), id, statusAbertos());
+        if (ocupada && !request.ativa()) {
+            throw new IllegalArgumentException("Finalize ou cancele o pedido da mesa antes de desativá-la.");
+        }
         mesa.configurar(request.nome(), request.lugares(), request.ativa(), request.ordem());
         mesa = mesas.save(mesa);
         auditoria.registrar(usuario, id == null ? "CRIAR" : "ATUALIZAR",
                 "MESA", mesa.getId(), mesa.getNome());
-        return new Mesa(mesa.getId(), mesa.getNome(), mesa.getLugares(),
-                mesa.isAtiva(), mesa.getOrdem(), false);
+        return respostaMesa(mesa, null);
     }
 
     @Transactional
@@ -298,11 +301,12 @@ public class LanchoneteService {
             linhas.add(new Linha(item, solicitado.quantidade(), solicitado.observacoes(), adicionais));
         }
 
-        long numero = pedidos.maiorNumero(loja.getId()) + 1;
+        LocalDateTime agora = LocalDateTime.now(clock);
+        long numero = pedidos.maiorNumeroNoDia(loja.getId(), agora.toLocalDate()) + 1;
         PedidoLanchonete pedido = new PedidoLanchonete(id, loja, usuario, cliente, mesa,
                 assinatura, numero, request.tipo(), request.identificacao(), request.telefone(),
                 request.endereco(), request.observacoes(), subtotal, request.desconto(),
-                LocalDateTime.now(clock));
+                agora);
         for (Linha linha : linhas) {
             PedidoLanchoneteItem itemPedido = new PedidoLanchoneteItem(pedido, linha.item(),
                     linha.quantidade(), linha.item().getProduto().getPreco(), linha.observacoes());
@@ -566,6 +570,13 @@ public class LanchoneteService {
     private List<StatusPedido> statusAbertos() {
         return List.of(StatusPedido.RECEBIDO, StatusPedido.EM_PREPARO,
                 StatusPedido.PRONTO, StatusPedido.SAIU_PARA_ENTREGA);
+    }
+
+    private Mesa respostaMesa(MesaLanchonete mesa, PedidoLanchonete pedido) {
+        return new Mesa(mesa.getId(), mesa.getNome(), mesa.getLugares(), mesa.isAtiva(),
+                mesa.getOrdem(), pedido != null, pedido == null ? null : pedido.getId(),
+                pedido == null ? null : pedido.getNumero(), pedido == null ? null : pedido.getStatus(),
+                pedido == null ? null : pedido.getTotal(), pedido == null ? null : pedido.getCriadoEm());
     }
 
     private <T> List<T> listaSegura(List<T> lista) {

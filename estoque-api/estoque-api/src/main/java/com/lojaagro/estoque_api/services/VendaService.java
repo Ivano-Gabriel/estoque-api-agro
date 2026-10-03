@@ -9,6 +9,9 @@ import com.lojaagro.estoque_api.repositories.VendaRepository;
 import com.lojaagro.estoque_api.repositories.DevolucaoVendaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -178,11 +181,33 @@ public class VendaService {
             Loja loja, int pagina, int tamanho, LocalDateTime inicio, LocalDateTime fim,
             StatusVenda status, String busca) {
         int limite = Math.min(100, Math.max(1, tamanho));
-        var paginaIds = vendas.buscarIds(loja.getId(), inicio, fim, status,
-                busca == null ? "" : busca.trim(), org.springframework.data.domain.PageRequest.of(
-                        Math.max(0, pagina), limite,
-                        org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "criadaEm")));
-        Map<UUID, Venda> porId = vendas.buscarDetalhes(paginaIds.getContent()).stream()
+        String termo = busca == null ? "" : busca.trim();
+        Specification<Venda> filtros = (root, query, cb) -> {
+            List<Predicate> criterios = new ArrayList<>();
+            criterios.add(cb.equal(root.get("loja").get("id"), loja.getId()));
+            if (inicio != null) criterios.add(cb.greaterThanOrEqualTo(root.get("criadaEm"), inicio));
+            if (fim != null) criterios.add(cb.lessThanOrEqualTo(root.get("criadaEm"), fim));
+            if (status != null) criterios.add(cb.equal(root.get("status"), status));
+            if (!termo.isBlank()) {
+                String nome = "%" + termo.toLowerCase(Locale.ROOT) + "%";
+                var cliente = root.join("cliente", JoinType.LEFT);
+                Predicate porNome = cb.like(cb.lower(cb.coalesce(
+                        cliente.<String>get("nome"), "")), nome);
+                try {
+                    criterios.add(cb.or(porNome, cb.equal(root.get("id"), UUID.fromString(termo))));
+                } catch (IllegalArgumentException ignorado) {
+                    criterios.add(porNome);
+                }
+            }
+            return cb.and(criterios.toArray(Predicate[]::new));
+        };
+        var paginaVendas = vendas.findAll(filtros, org.springframework.data.domain.PageRequest.of(
+                Math.max(0, pagina), limite,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "criadaEm")));
+        var paginaIds = paginaVendas.map(Venda::getId);
+        List<Venda> detalhes = paginaIds.isEmpty()
+                ? List.of() : vendas.buscarDetalhes(paginaIds.getContent());
+        Map<UUID, Venda> porId = detalhes.stream()
                 .collect(java.util.stream.Collectors.toMap(Venda::getId, v -> v));
         List<VendaResponse> conteudo = paginaIds.getContent().stream().map(porId::get)
                 .filter(Objects::nonNull).map(VendaResponse::de).toList();

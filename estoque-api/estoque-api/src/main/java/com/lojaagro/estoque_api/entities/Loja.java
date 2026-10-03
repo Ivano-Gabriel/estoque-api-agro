@@ -40,6 +40,9 @@ public class Loja {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean lanchoneteAtiva = false;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean temaLanchoneteAtivo = false;
+
     @Column(length = 20)
     private String whatsapp;
 
@@ -94,6 +97,7 @@ public class Loja {
     public boolean isNotasFiscaisAtivas() { return notasFiscaisAtivas; }
     public boolean isCaixaOperacionalAtivo() { return caixaOperacionalAtivo; }
     public boolean isLanchoneteAtiva() { return lanchoneteAtiva; }
+    public boolean isTemaLanchoneteAtivo() { return temaLanchoneteAtivo; }
     public String getWhatsapp() { return whatsapp; }
     public void setAtiva(boolean ativa) { this.ativa = ativa; }
     public void configurar(String nome, boolean financeiroAtivo, boolean fotosAtivas, String whatsapp) {
@@ -109,6 +113,13 @@ public class Loja {
     public void configurar(String nome, boolean financeiroAtivo, boolean fotosAtivas,
                            boolean notasFiscaisAtivas, boolean caixaOperacionalAtivo,
                            boolean lanchoneteAtiva, String whatsapp) {
+        configurar(nome, financeiroAtivo, fotosAtivas, notasFiscaisAtivas,
+                caixaOperacionalAtivo, lanchoneteAtiva, temaLanchoneteAtivo, whatsapp);
+    }
+
+    public void configurar(String nome, boolean financeiroAtivo, boolean fotosAtivas,
+                           boolean notasFiscaisAtivas, boolean caixaOperacionalAtivo,
+                           boolean lanchoneteAtiva, boolean temaLanchoneteAtivo, String whatsapp) {
         if (nome == null || nome.isBlank()) throw new IllegalArgumentException("Nome da loja é obrigatório.");
         this.nome = nome.trim();
         this.financeiroAtivo = financeiroAtivo;
@@ -116,6 +127,7 @@ public class Loja {
         this.notasFiscaisAtivas = notasFiscaisAtivas;
         this.caixaOperacionalAtivo = caixaOperacionalAtivo;
         this.lanchoneteAtiva = lanchoneteAtiva;
+        this.temaLanchoneteAtivo = lanchoneteAtiva && temaLanchoneteAtivo;
         this.whatsapp = normalizarWhatsapp(whatsapp);
     }
 }

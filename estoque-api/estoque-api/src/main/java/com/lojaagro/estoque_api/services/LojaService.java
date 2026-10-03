@@ -39,7 +39,8 @@ public class LojaService {
                 request.whatsapp()));
         loja.configurar(loja.getNome(), loja.isFinanceiroAtivo(), loja.isFotosAtivas(),
                 loja.isNotasFiscaisAtivas(), Boolean.TRUE.equals(request.caixaOperacionalAtivo()),
-                Boolean.TRUE.equals(request.lanchoneteAtiva()), loja.getWhatsapp());
+                Boolean.TRUE.equals(request.lanchoneteAtiva()),
+                Boolean.TRUE.equals(request.temaLanchoneteAtivo()), loja.getWhatsapp());
         caixas.save(new FluxoCaixa(loja.getId(), loja));
         Usuario admin = new Usuario();
         admin.setEmail(email);
@@ -61,13 +62,14 @@ public class LojaService {
     @Transactional
     public Loja configurar(Long id, String nome, boolean financeiroAtivo, Boolean fotosAtivas,
                            Boolean notasFiscaisAtivas, Boolean caixaOperacionalAtivo,
-                           Boolean lanchoneteAtiva, String whatsapp) {
+                           Boolean lanchoneteAtiva, Boolean temaLanchoneteAtivo, String whatsapp) {
         Loja loja = lojas.findById(id).orElseThrow(() -> new IllegalArgumentException("Loja não encontrada."));
         loja.configurar(nome, financeiroAtivo,
                 fotosAtivas == null ? loja.isFotosAtivas() : fotosAtivas,
                 notasFiscaisAtivas == null ? loja.isNotasFiscaisAtivas() : notasFiscaisAtivas,
                 caixaOperacionalAtivo == null ? loja.isCaixaOperacionalAtivo() : caixaOperacionalAtivo,
                 lanchoneteAtiva == null ? loja.isLanchoneteAtiva() : lanchoneteAtiva,
+                temaLanchoneteAtivo == null ? loja.isTemaLanchoneteAtivo() : temaLanchoneteAtivo,
                 whatsapp);
         usuarios.findByLojaId(id).forEach(Usuario::revogarSessoes);
         return loja;

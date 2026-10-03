@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.mock.web.MockMultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.net.URI;
 import java.net.http.*;
 import java.util.UUID;
@@ -319,9 +320,16 @@ class PilotIntegrityTest {
                 List.of(new LanchoneteDtos.PedidoItemRequest(item.id(), 2, "Sem cebola",
                         Set.of(grupo.opcoes().getFirst().id()))));
 
+        pedidosLanchonete.saveAndFlush(new PedidoLanchonete(UUID.randomUUID(), loja, admin,
+                null, null, "pedido-do-dia-anterior", 1, TipoAtendimento.BALCAO,
+                "Ontem", null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                LocalDateTime.now().minusDays(1)));
+
         var criado = lanchonete.criar(chave, request, admin);
         var repetido = lanchonete.criar(chave, request, admin);
         assertEquals(criado.id(), repetido.id());
+        assertEquals(1, criado.numero());
+        assertEquals(criado.criadoEm().toLocalDate(), criado.dataOperacao());
         assertEquals(16, produtoRepo.findById(carne.getId()).orElseThrow().getQuantidadeEstoque());
         assertEquals(18, produtoRepo.findById(queijo.getId()).orElseThrow().getQuantidadeEstoque());
         assertEquals(0, produtoRepo.findById(lanche.getId()).orElseThrow().getQuantidadeEstoque());

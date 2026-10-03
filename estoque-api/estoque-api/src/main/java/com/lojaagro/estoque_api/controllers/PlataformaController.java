@@ -29,6 +29,7 @@ public class PlataformaController {
             Boolean notasFiscaisAtivas,
             Boolean caixaOperacionalAtivo,
             Boolean lanchoneteAtiva,
+            Boolean temaLanchoneteAtivo,
             @jakarta.validation.constraints.Size(max = 20) String whatsapp) {}
 
     @GetMapping public List<Loja> listar() { return lojas.listar(); }
@@ -48,7 +49,7 @@ public class PlataformaController {
     public Loja configurar(@PathVariable Long id, @Valid @RequestBody Configuracao config, org.springframework.security.core.Authentication auth) {
         Loja loja=lojas.configurar(id, config.nome(), config.financeiroAtivo(), config.fotosAtivas(),
                 config.notasFiscaisAtivas(), config.caixaOperacionalAtivo(),
-                config.lanchoneteAtiva(), config.whatsapp());
+                config.lanchoneteAtiva(), config.temaLanchoneteAtivo(), config.whatsapp());
         auditoria.registrarPlataforma(usuarios.atual(auth),loja,"CONFIGURAR","Módulos da loja atualizados"); return loja;
     }
 }

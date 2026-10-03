@@ -4,11 +4,13 @@ import com.lojaagro.estoque_api.entities.Loja;
 
 public record LojaResumo(Long id, String nome, String slug, boolean financeiroAtivo,
                          boolean fotosAtivas, boolean notasFiscaisAtivas,
-                         boolean caixaOperacionalAtivo, boolean lanchoneteAtiva) {
+                         boolean caixaOperacionalAtivo, boolean lanchoneteAtiva,
+                         boolean temaLanchoneteAtivo) {
     public static LojaResumo from(Loja loja) {
         return loja == null ? null : new LojaResumo(
                 loja.getId(), loja.getNome(), loja.getSlug(), loja.isFinanceiroAtivo(),
                 loja.isFotosAtivas(), loja.isNotasFiscaisAtivas(),
-                loja.isCaixaOperacionalAtivo(), loja.isLanchoneteAtiva());
+                loja.isCaixaOperacionalAtivo(), loja.isLanchoneteAtiva(),
+                loja.isTemaLanchoneteAtivo());
     }
 }
