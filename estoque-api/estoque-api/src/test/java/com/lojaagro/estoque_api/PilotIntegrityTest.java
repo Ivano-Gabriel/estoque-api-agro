@@ -243,6 +243,24 @@ class PilotIntegrityTest {
         assertEquals(404, http("DELETE", "/admin/ferramentas-teste/reset-financeiro", adminToken, null).statusCode());
     }
 
+    @Test void painelFinanceiroCarregaResumoTransacoesEVendasSemExporEntidades() throws Exception {
+        movimentos.executar(UUID.randomUUID().toString(), true, produto.getId(), venda(1), admin);
+        String token = jwt.gerarToken(admin);
+
+        var fluxo = http("GET", "/fluxo-caixa", token, null);
+        var historico = http("GET", "/transacoes?limite=200", token, null);
+        var vendasPaginadas = http("GET", "/vendas/pagina?pagina=0&tamanho=25", token, null);
+
+        assertEquals(200, fluxo.statusCode());
+        assertTrue(fluxo.body().contains("totalEntradas"));
+        assertTrue(fluxo.body().contains("lucroBruto"));
+        assertEquals(200, historico.statusCode());
+        assertTrue(historico.body().contains("Ração Premium 15kg"));
+        assertFalse(historico.body().contains("senha"));
+        assertEquals(200, vendasPaginadas.statusCode());
+        assertTrue(vendasPaginadas.body().contains("itens"));
+    }
+
     @Test void endpointExigeChaveERespondeAoPreflightDoFrontend() throws Exception {
         String token = jwt.gerarToken(admin);
         String path = "/produtos/" + produto.getId() + "/venda-com-lucro";

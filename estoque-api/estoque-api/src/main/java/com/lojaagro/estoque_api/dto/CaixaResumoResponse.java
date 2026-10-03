@@ -6,10 +6,12 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 public record CaixaResumoResponse(BigDecimal totalEntradas, BigDecimal totalSaidas,
-                                  BigDecimal saldoLiquido, LocalDateTime ultimaAtualizacao,
+                                  BigDecimal saldoLiquido, BigDecimal lucroBruto,
+                                  LocalDateTime ultimaAtualizacao,
                                   Map<String, BigDecimal> recebimentosPorForma) {
-    public static CaixaResumoResponse de(FluxoCaixa caixa, Map<String, BigDecimal> formas) {
+    public static CaixaResumoResponse de(FluxoCaixa caixa, BigDecimal lucroBruto,
+                                         Map<String, BigDecimal> formas) {
         return new CaixaResumoResponse(caixa.getTotalEntradas(), caixa.getTotalSaidas(),
-                caixa.getSaldoLiquido(), caixa.getUltimaAtualizacao(), formas);
+                caixa.getSaldoLiquido(), lucroBruto, caixa.getUltimaAtualizacao(), formas);
     }
 }

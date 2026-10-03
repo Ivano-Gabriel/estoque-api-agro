@@ -8,6 +8,7 @@ import java.util.List;
 import org.springframework.security.core.Authentication;
 import com.lojaagro.estoque_api.services.UsuarioService;
 import com.lojaagro.estoque_api.services.FinanceiroService;
+import com.lojaagro.estoque_api.dto.TransacaoResumoResponse;
 
 @RestController
 @RequestMapping("/transacoes")
@@ -26,8 +27,9 @@ public class TransacaoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Transacao>> listarTodas(Authentication auth) {
-        return ResponseEntity.ok(service.listarTodas(loja(auth)));
+    public ResponseEntity<List<TransacaoResumoResponse>> listarTodas(
+            @RequestParam(defaultValue = "200") int limite, Authentication auth) {
+        return ResponseEntity.ok(service.listarResumidas(loja(auth), limite));
     }
 
     @GetMapping("/ultimas")

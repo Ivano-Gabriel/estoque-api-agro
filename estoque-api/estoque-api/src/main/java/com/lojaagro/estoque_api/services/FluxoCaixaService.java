@@ -72,6 +72,12 @@ public class FluxoCaixaService {
         return resultado;
     }
 
+    @Transactional(readOnly = true)
+    public BigDecimal lucroBruto(Long lojaId) {
+        BigDecimal total = transacoes.sumLucroOperacional(lojaId);
+        return total == null ? BigDecimal.ZERO.setScale(2) : total.setScale(2);
+    }
+
     // Uma trava no banco, compartilhada entre instâncias, serializa as operações da loja.
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void bloquearOperacoes(Long lojaId) {

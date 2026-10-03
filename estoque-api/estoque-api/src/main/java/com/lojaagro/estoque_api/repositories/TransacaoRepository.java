@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.math.BigDecimal;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
@@ -30,6 +31,8 @@ public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
     List<Transacao> findTop10ByLojaIdOrderByDataDesc(Long lojaId);
 
     List<Transacao> findByLojaIdOrderByDataDesc(Long lojaId);
+
+    List<Transacao> findByLojaIdOrderByDataDesc(Long lojaId, Pageable pageable);
 
     @Query("SELECT t.produto.id, t.produto.nome, SUM(t.quantidade) FROM Transacao t "
             + "WHERE t.loja.id = :lojaId AND t.cliente.id = :clienteId AND t.tipo = 'VENDA' AND t.estornada = false "

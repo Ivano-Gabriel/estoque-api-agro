@@ -26,6 +26,7 @@ public class FluxoCaixaController {
         var loja = usuarios.lojaAtual(auth);
         financeiro.exigirAtivo(loja);
         var caixa = service.getFluxoAtual(loja.getId());
-        return ResponseEntity.ok(CaixaResumoResponse.de(caixa, service.recebimentosPorForma(loja.getId())));
+        return ResponseEntity.ok(CaixaResumoResponse.de(caixa, service.lucroBruto(loja.getId()),
+                service.recebimentosPorForma(loja.getId())));
     }
 }

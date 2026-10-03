@@ -13,6 +13,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.util.List;
+import com.lojaagro.estoque_api.dto.TransacaoResumoResponse;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 public class TransacaoService {
@@ -61,6 +63,13 @@ public class TransacaoService {
 
     public List<Transacao> listarTodas(Long lojaId) {
         return repository.findByLojaIdOrderByDataDesc(lojaId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TransacaoResumoResponse> listarResumidas(Long lojaId, int limite) {
+        int tamanhoSeguro = Math.min(500, Math.max(1, limite));
+        return repository.findByLojaIdOrderByDataDesc(lojaId, PageRequest.of(0, tamanhoSeguro))
+                .stream().map(TransacaoResumoResponse::de).toList();
     }
 
     public List<Transacao> listarUltimas10(Long lojaId) {
